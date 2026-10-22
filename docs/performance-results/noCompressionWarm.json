@@ -1,0 +1,119 @@
+[
+  {
+    "variant": "no-compression",
+    "phase": "initial",
+    "wallMs": 14251,
+    "callbackMs": 13687,
+    "compilerMs": 13670,
+    "built": 14793,
+    "counts": {
+      "tsrs-loader": 3196,
+      "babel-loader": 4244,
+      "vue-loader": 8828,
+      "sass-loader": 1808
+    },
+    "hash": "4c8852f32a31d479",
+    "hotBytes": 0
+  },
+  {
+    "variant": "no-compression",
+    "setupMs": 442,
+    "initialAssetBytes": 151359981
+  },
+  {
+    "variant": "no-compression",
+    "phase": "template-1",
+    "wallMs": 640,
+    "callbackMs": 215,
+    "compilerMs": 206,
+    "built": 13,
+    "counts": {
+      "sass-loader": 4,
+      "vue-loader": 11,
+      "tsrs-loader": 4,
+      "babel-loader": 4
+    },
+    "hash": "619367e26447c453",
+    "hotBytes": 38570
+  },
+  {
+    "variant": "no-compression",
+    "phase": "script-1",
+    "wallMs": 594,
+    "callbackMs": 194,
+    "compilerMs": 185,
+    "built": 13,
+    "counts": {
+      "sass-loader": 4,
+      "vue-loader": 11,
+      "tsrs-loader": 4,
+      "babel-loader": 4
+    },
+    "hash": "75f48a8ab9eae0f0",
+    "hotBytes": 38521
+  },
+  {
+    "variant": "no-compression",
+    "phase": "style-1",
+    "wallMs": 635,
+    "callbackMs": 191,
+    "compilerMs": 181,
+    "built": 13,
+    "counts": {
+      "sass-loader": 4,
+      "vue-loader": 11,
+      "tsrs-loader": 4,
+      "babel-loader": 4
+    },
+    "hash": "74040f8ce3759d7d",
+    "hotBytes": 36737
+  },
+  {
+    "variant": "no-compression",
+    "phase": "template-2",
+    "wallMs": 623,
+    "callbackMs": 194,
+    "compilerMs": 185,
+    "built": 13,
+    "counts": {
+      "sass-loader": 4,
+      "vue-loader": 11,
+      "tsrs-loader": 4,
+      "babel-loader": 4
+    },
+    "hash": "32af2c08a1137544",
+    "hotBytes": 38570
+  },
+  {
+    "variant": "no-compression",
+    "phase": "script-2",
+    "wallMs": 610,
+    "callbackMs": 192,
+    "compilerMs": 183,
+    "built": 13,
+    "counts": {
+      "sass-loader": 4,
+      "vue-loader": 11,
+      "tsrs-loader": 4,
+      "babel-loader": 4
+    },
+    "hash": "1f478f189df2560b",
+    "hotBytes": 38521
+  },
+  {
+    "variant": "no-compression",
+    "phase": "style-2",
+    "wallMs": 625,
+    "callbackMs": 197,
+    "compilerMs": 187,
+    "built": 13,
+    "counts": {
+      "sass-loader": 4,
+      "vue-loader": 11,
+      "tsrs-loader": 4,
+      "babel-loader": 4
+    },
+    "hash": "d26e5560804a3cbb",
+    "hotBytes": 36737
+  }
+]

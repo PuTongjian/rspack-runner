@@ -1,0 +1,119 @@
+[
+  {
+    "variant": "lazy",
+    "phase": "initial",
+    "wallMs": 5726,
+    "callbackMs": 5487,
+    "compilerMs": 5477,
+    "built": 7004,
+    "counts": {
+      "tsrs-loader": 1276,
+      "babel-loader": 1465,
+      "vue-loader": 3330,
+      "sass-loader": 513
+    },
+    "hash": "c1423f9a44180b41",
+    "hotBytes": 0
+  },
+  {
+    "variant": "lazy",
+    "setupMs": 444,
+    "initialAssetBytes": 67186018
+  },
+  {
+    "variant": "lazy",
+    "phase": "template-1",
+    "wallMs": 313,
+    "callbackMs": 122,
+    "compilerMs": 117,
+    "built": 13,
+    "counts": {
+      "sass-loader": 4,
+      "vue-loader": 11,
+      "tsrs-loader": 4,
+      "babel-loader": 4
+    },
+    "hash": "9033f5c5ab48d90a",
+    "hotBytes": 5085
+  },
+  {
+    "variant": "lazy",
+    "phase": "script-1",
+    "wallMs": 310,
+    "callbackMs": 117,
+    "compilerMs": 111,
+    "built": 13,
+    "counts": {
+      "sass-loader": 4,
+      "vue-loader": 11,
+      "tsrs-loader": 4,
+      "babel-loader": 4
+    },
+    "hash": "67946739a0d064d5",
+    "hotBytes": 5036
+  },
+  {
+    "variant": "lazy",
+    "phase": "style-1",
+    "wallMs": 316,
+    "callbackMs": 122,
+    "compilerMs": 117,
+    "built": 13,
+    "counts": {
+      "sass-loader": 4,
+      "vue-loader": 11,
+      "tsrs-loader": 4,
+      "babel-loader": 4
+    },
+    "hash": "3649e76cfdcb2394",
+    "hotBytes": 3252
+  },
+  {
+    "variant": "lazy",
+    "phase": "template-2",
+    "wallMs": 307,
+    "callbackMs": 116,
+    "compilerMs": 110,
+    "built": 13,
+    "counts": {
+      "sass-loader": 4,
+      "vue-loader": 11,
+      "tsrs-loader": 4,
+      "babel-loader": 4
+    },
+    "hash": "0c4b6b6129293fbf",
+    "hotBytes": 5085
+  },
+  {
+    "variant": "lazy",
+    "phase": "script-2",
+    "wallMs": 308,
+    "callbackMs": 116,
+    "compilerMs": 110,
+    "built": 13,
+    "counts": {
+      "sass-loader": 4,
+      "vue-loader": 11,
+      "tsrs-loader": 4,
+      "babel-loader": 4
+    },
+    "hash": "b63ec0523fea2d08",
+    "hotBytes": 5036
+  },
+  {
+    "variant": "lazy",
+    "phase": "style-2",
+    "wallMs": 308,
+    "callbackMs": 116,
+    "compilerMs": 110,
+    "built": 13,
+    "counts": {
+      "sass-loader": 4,
+      "vue-loader": 11,
+      "tsrs-loader": 4,
+      "babel-loader": 4
+    },
+    "hash": "ddafda3d90f900c9",
+    "hotBytes": 3252
+  }
+]

@@ -1,0 +1,174 @@
+# Rspack Runner
+
+Run an existing **Vue CLI 5 + Vue 3** application with an Rspack development server, without editing the application's `package.json`, `vue.config.js`, Babel configuration, or TypeScript configuration.
+
+Rspack Runner reads the target project's Vue CLI configuration, adapts supported Webpack rules and plugins in memory, and starts a separate development server. It is an experimental development runner for evaluating Rspack alongside an existing Vue CLI setup.
+
+## Features
+
+- **Reuse project configuration.** Load Vue CLI environment files, `chainWebpack`, `configureWebpack`, aliases, and supported loader options through the project's own Vue CLI service.
+- **TypeScript with tsrs.** Replace `ts-loader` with a runner-owned loader for TypeScript, TSX, and Vue TypeScript blocks, with syntax diagnostics and composed source maps.
+- **Fast incremental compilation.** Enable memory and persistent filesystem caching, with configuration files, lockfiles, extended TypeScript configurations, and custom loaders included in cache invalidation.
+- **Lazy Vue page compilation.** Defer dynamically imported `.vue` files under `src/views` and `agilebpm/package` until requested, while compiling entries immediately.
+- **Embedded Sass.** Use the runner's modern Sass compiler while adapting legacy Sass options, injected variables, and Webpack-style aliases.
+- **Existing development workflows.** Keep hot module replacement (HMR), API proxy rules, WebSocket proxy options, public assets, and SPA history fallback.
+- **Selected plugin adapters.** Adapt common Webpack plugins and supported unplugin integrations, including auto imports, component registration, `defineOptions`, and Element Plus.
+- **Inline SVG sprites.** Preserve symbol IDs for JavaScript-imported sprites using the target project's SVG tooling and runtime.
+
+## Requirements
+
+- Node.js **20.19.0 or later**.
+- An existing **Vue CLI 5 + Vue 3** application with its dependencies already installed and a readable `tsconfig.json`.
+- A platform supported by the pinned tsrs prebuilt binaries: macOS arm64 or Linux x64/arm64.
+
+The target project supplies Vue CLI, Vue Loader, Babel, PostCSS, and its application-specific loaders and plugins. Rspack Runner supplies Rspack, its development server, tsrs, and the default Sass toolchain.
+
+The current runner pins Rspack **1.7.12**, Rspack Dev Server **1.2.1**, tsrs **0.18.0-ts7.1.0-dev.20260929**, sass-loader **16.0.6**, and sass-embedded **1.105.0**.
+
+## Quick Start
+
+Clone and install the runner:
+
+```sh
+git clone https://github.com/PuTongjian/rspack-runner.git
+cd rspack-runner
+npm ci
+```
+
+Start a target application using an absolute or relative project path:
+
+```sh
+node src/cli.cjs dev --project /path/to/your-vue-cli-app --port 8087
+```
+
+Open <http://localhost:8087>. The browser is not opened automatically. Stop the server with `Ctrl+C`.
+
+You can also run the CLI from the target application's directory, in which case `--project` defaults to that directory:
+
+```sh
+cd /path/to/your-vue-cli-app
+node /path/to/rspack-runner/src/cli.cjs dev --port 8087
+```
+
+Use a different port from the application's original Webpack server to run both side by side.
+
+The repository also includes an application-specific shortcut:
+
+```sh
+# Requires an installed Vue CLI application at ../assets-supervision-ui.
+npm run demo
+
+# Override the demo port.
+npm run demo -- --port 8088
+```
+
+This repository is marked `private` in `package.json`; the instructions above use a local checkout rather than an npm registry package.
+
+## CLI Options
+
+```text
+rspack-runner dev [options]
+```
+
+| Option | Default | Behavior |
+| --- | --- | --- |
+| `--project PATH` | Current directory | Target Vue CLI application. |
+| `--mode NAME` | `development` | Select the Vue CLI environment mode and its `.env` files. |
+| `--port NUMBER` | Project `devServer.port`, otherwise `8080` | Development server port, from 1 to 65535. |
+| `--host HOST` | `localhost` | Development server bind address. |
+| `--no-lazy` | Lazy compilation enabled | Compile matching dynamic Vue imports eagerly. |
+| `--no-persistent-cache` | Persistent cache enabled | Disable disk caching while retaining memory caching. |
+| `--no-embedded-sass` | Embedded Sass enabled | Retain the target project's Sass loader and compiler. |
+| `--no-eval` | Eval-based source maps enabled | Use `cheap-module-source-map` for environments whose CSP blocks `eval`. |
+| `--help`, `-h` | | Print usage. |
+
+Only the `dev` command is supported. `--mode` selects Vue CLI configuration and environment files; the Rspack compilation mode and `NODE_ENV` remain `development`.
+
+For example:
+
+```sh
+node src/cli.cjs dev --project ../my-app --mode staging --port 8087 --no-eval
+```
+
+## How Configuration Is Adapted
+
+The runner initializes the target project's Vue CLI service and resolves its Webpack configuration. It then adapts that configuration before passing it to Rspack:
+
+| Area | Adaptation |
+| --- | --- |
+| TypeScript | Replace `ts-loader` with the runner's tsrs loader. |
+| Babel and PostCSS | Reuse the target project's configuration and dependencies; move Babel caching into the runner and disable cache compression. |
+| Sass | Use the runner's embedded modern compiler by default, preserving supported project options. |
+| Define, Provide, Banner, and CSS extraction | Replace recognized Webpack plugins with Rspack equivalents. |
+| HTML | Use the runner's pinned `html-webpack-plugin`. |
+| Public directory | Serve assets directly through the development server instead of CopyPlugin. |
+| Supported unplugin modules | Select their Rspack factories while Vue CLI evaluates configuration, preserving supplied options except declaration-generation settings. |
+| Development server | Adapt proxy configuration and enable HMR, static serving, history fallback, and lazy-compilation middleware. |
+
+The recognized unplugin integrations are `unplugin-auto-import`, `unplugin-vue-components`, `unplugin-vue-define-options`, and `unplugin-element-plus`. Their installed versions must expose a compatible Rspack factory, or a supported raw factory. Auto-import and component declaration generation is disabled, as is auto-import ESLint declaration generation. The temporary Node module-loading interception is restored after configuration resolution.
+
+## Caching and Performance
+
+By default, the runner enables:
+
+- Rspack memory and persistent filesystem caches.
+- Lazy compilation for the Vue page paths described above.
+- `eval-cheap-module-source-map` source maps.
+- Uncompressed Babel caching.
+- A reusable embedded Sass modern compiler.
+
+Caches are stored inside the runner checkout:
+
+```text
+.cache/<project-path-hash>/rspack/
+.cache/<project-path-hash>/babel-uncompressed/
+```
+
+Development bundles are served from memory. The first run populates caches, and opening a deferred page for the first time incurs a compilation wait. Disk caches can grow substantially. Stop the server before deleting a project's cache directory, and avoid running multiple runner compilers against the same project cache simultaneously.
+
+Restart the server after changing project configuration or `tsconfig.json`. The runner tracks these inputs for cache invalidation on restart; it does not reload all configuration in a running process.
+
+Use the `--no-*` options individually to compare behavior or investigate compatibility issues.
+
+Recorded measurements on the reference application reduced the initial Rspack compilation from about **14.14 s to 5.12 s**, a subsequent process-start compilation to **1.53 s**, and the median single-component edit compilation from **13.25 s to 110.5 ms**. These are application-specific compiler timings with warmed OS/Babel caches, exclude first visits to deferred pages, and do not measure browser-visible HMR latency or guarantee equivalent results elsewhere.
+
+See [the performance investigation](docs/compile-performance.md) and [source references](docs/performance-sources.md) for methodology and raw results. These research notes are currently in Chinese. The benchmark harness expects the sibling `../assets-supervision-ui` application:
+
+```sh
+node scripts/benchmark-compile.cjs optimized
+```
+
+Run it again to compare persistent-cache reuse across processes.
+
+## Validation
+
+Run the automated adapter, loader, and compilation tests:
+
+```sh
+npm test
+```
+
+The suite covers proxy conversion, nested loader adaptation, CLI validation, tsrs output and diagnostics, cache invalidation, Sass compatibility, and lazy-compilation middleware with hot-update assets.
+
+An additional browser smoke script uses the reference application's configuration and dependencies:
+
+```sh
+node test/smoke.cjs /path/to/assets-supervision-ui
+```
+
+It creates a temporary Vue + TypeScript + SCSS fixture inside the runner's cache directory and checks HTML/static serving, SVG sprites, auto imports, Element Plus, proxy rewriting, lazy-page activation, HMR WebSocket messages, and browser DOM updates. It assumes reference-specific assets, styles, and plugins, so it is not a generic smoke test for every Vue CLI application. The default browser path is macOS Google Chrome; set `PLAYWRIGHT_EXECUTABLE_PATH` to use another compatible browser installation.
+
+`npm run test:e2e` runs a separate application-specific asset-disposal workflow against an already running reference application. See [the E2E instructions](test/e2e/README.md) for login-state and environment settings. It is not part of the generic runner test suite.
+
+## Compatibility and Limitations
+
+- **Development only.** Production builds, library mode, and arbitrary Webpack projects are not implemented.
+- **Vue CLI internals.** Configuration resolution relies on Vue CLI 5 internal APIs, and plugin compatibility depends on the target project's installed versions.
+- **Transpilation only.** tsrs reports syntax diagnostics but does not perform cross-file type checking. Run the application's type-check command separately. Keep its TypeScript dependency if Vue CLI or other plugins require it.
+- **TypeScript emit behavior.** The runner reads `tsconfig.json`, including `extends`, and forwards selected single-file emit options. It ignores the legacy `suppressImplicitAnyIndexErrors` option in memory, raises targets below ES2015 to ES2015, and lets Rspack resolve imports and aliases. Full ES5 compatibility is not promised; Babel still applies the project's JavaScript transforms afterward.
+- **Explicit plugin support.** Unknown named plugins cause an error and need an explicit adapter. Anonymous object plugins are retained and require validation against the target application.
+- **Omitted plugins.** CaseSensitivePaths, FriendlyErrors, WebpackBar, and ForkTsChecker are omitted, with notices printed at startup.
+- **SVG scope.** The sprite adapter supports JavaScript-imported inline sprites and preserves `symbolId`. `extract: true` is unsupported.
+- **Warnings.** The terminal suppresses individual compilation warning messages, including existing Vue and Sass deprecation warnings.
+
+This runner provides a way to evaluate an existing application's development workflow with Rspack. Compatibility must be checked against that application's actual loaders, plugins, styles, and browser behavior before adopting it.
