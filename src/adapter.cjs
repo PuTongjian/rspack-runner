@@ -7,6 +7,30 @@ const { readCompilerOptions } = require('./tsrs-loader.cjs');
 const { adaptSass } = require('./sass-options.cjs');
 const { cacheDependencies, cacheVersion } = require('./cache.cjs');
 
+const VUE_RUNTIME_COMPAT_VERSION = 3;
+
+// Vue 3.5's renderSlot assumes that a rendering instance is always present.
+// Rspack's lazy/HMR slot path can invoke it without one, which otherwise
+// surfaces as "Cannot read properties of null (reading 'ce')" in the browser.
+function patchVueRuntimeNullGuard(source) {
+  const expression = 'currentRenderingInstance.ce || currentRenderingInstance.parent && isAsyncWrapper(currentRenderingInstance.parent) && currentRenderingInstance.parent.ce';
+  const replacement = 'currentRenderingInstance && (currentRenderingInstance.ce || currentRenderingInstance.parent && isAsyncWrapper(currentRenderingInstance.parent) && currentRenderingInstance.parent.ce)';
+  return source.includes(expression) ? source.replace(expression, replacement) : source;
+}
+
+class VueRuntimeCompatPlugin {
+  apply(compiler) {
+    compiler.hooks.emit.tap('VueRuntimeCompatPlugin', compilation => {
+      const { sources } = compiler.webpack;
+      for (const [name, asset] of Object.entries(compilation.assets)) {
+        const source = asset.source().toString();
+        const patched = patchVueRuntimeNullGuard(source);
+        if (patched !== source) compilation.assets[name] = new sources.RawSource(patched);
+      }
+    });
+  }
+}
+
 function normalizeProxy(proxy) {
   if (!proxy || Array.isArray(proxy)) return proxy;
   if (typeof proxy !== 'object') throw new Error('This demo supports object/array devServer.proxy only.');
@@ -112,6 +136,11 @@ async function createConfig({ project, mode = 'development', port, host = 'local
     throw new Error(`Unsupported plugin ${name}; add an explicit adapter instead of silently dropping it.`);
   });
   adaptRules(config.module.rules, cacheDir, { compilerOptions, configFile: tsconfig, configFiles: [...configFiles] }, embeddedSass);
+  config.module.rules.unshift({
+    test: /[\\/]@vue[\\/]runtime-core[\\/].*\.js$/,
+    enforce: 'post',
+    use: [require.resolve('./vue-runtime-compat-loader.cjs')],
+  });
   delete config.optimization.minimizer; // Development compilation does not minify.
   config.mode = 'development';
   config.output.path = path.join(cacheDir, 'dist');
@@ -121,11 +150,12 @@ async function createConfig({ project, mode = 'development', port, host = 'local
     ...config.experiments,
     cache: persistent ? {
       type: 'persistent', buildDependencies,
-      version: cacheVersion(buildDependencies, { compilerOptions, lazy, embeddedSass, devtool }, mode),
+      version: cacheVersion(buildDependencies, { compilerOptions, lazy, embeddedSass, devtool, vueRuntimeCompat: VUE_RUNTIME_COMPAT_VERSION }, mode),
       storage: { type: 'filesystem', directory: path.join(cacheDir, 'rspack') },
     } : { type: 'memory' },
   };
   config.devtool = devtool;
+  config.plugins.push(new VueRuntimeCompatPlugin());
   config.lazyCompilation = lazy ? { entries: false, imports: true, test: /[\\/](?:src[\\/]views|agilebpm[\\/]package)[\\/].*\.vue$/ } : false;
   notices.push(`Cache: ${persistent ? 'persistent + memory' : 'memory'}; lazy Vue pages: ${lazy ? 'on' : 'off'}; Sass: ${embeddedSass ? 'embedded modern compiler' : 'project loader'}.`);
   config.stats = { preset: 'errors-warnings', warnings: false, children: true };
