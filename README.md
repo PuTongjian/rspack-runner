@@ -38,7 +38,7 @@ npm ci
 Start a target application using an absolute or relative project path:
 
 ```sh
-node src/cli.cjs dev --project /path/to/your-vue-cli-app --port 8087
+node src/cli.cjs run --project /path/to/your-vue-cli-app --port 8087
 ```
 
 Open <http://localhost:8087>. The browser is not opened automatically. Stop the server with `Ctrl+C`.
@@ -47,7 +47,7 @@ You can also run the CLI from the target application's directory, in which case 
 
 ```sh
 cd /path/to/your-vue-cli-app
-node /path/to/rspack-runner/src/cli.cjs dev --port 8087
+node /path/to/rspack-runner/src/cli.cjs run --port 8087
 ```
 
 Use a different port from the application's original Webpack server to run both side by side.
@@ -62,18 +62,45 @@ npm run demo
 npm run demo -- --port 8088
 ```
 
-This repository is marked `private` in `package.json`; the instructions above use a local checkout rather than an npm registry package.
+The CLI can also build the current project into its `dist` directory:
+
+```sh
+rspack-runner build
+```
+
+Homebrew requires formulas to live in a tap. To test this formula locally:
+
+```sh
+brew tap-new local/rspack-runner
+mkdir -p "$(brew --repository)/Library/Taps/local/homebrew-rspack-runner/Formula"
+cp Formula/rspack-runner.rb "$(brew --repository)/Library/Taps/local/homebrew-rspack-runner/Formula/"
+brew install --HEAD --build-from-source local/rspack-runner/rspack-runner
+```
+
+For a shared installation, put `Formula/rspack-runner.rb` in a GitHub repository named `homebrew-rspack-runner`, then install it with `brew tap <account>/rspack-runner` followed by `brew install --HEAD <account>/rspack-runner/rspack-runner`. The formula tracks this repository's `main` branch.
+
+The repository also provides npm commands for managing the default local tap (`local/rspack-runner`):
+
+```sh
+npm run brew:install   # create/update the tap and install the command
+npm run brew:update    # copy the current formula and reinstall from HEAD
+npm run brew:uninstall # uninstall the command and remove the local tap
+```
+
+`brew:uninstall` removes this formula and its dedicated local tap; it does not uninstall Homebrew itself. Set `RSPACK_RUNNER_TAP=owner/repository` before install/update if you use another tap.
+
+The installed command always uses the current working directory as the project unless `--project` is supplied. `run` is the user-facing name for the development server; `dev` remains an alias.
 
 ## CLI Options
 
 ```text
-rspack-runner dev [options]
+rspack-runner <run|build> [options]
 ```
 
 | Option | Default | Behavior |
 | --- | --- | --- |
 | `--project PATH` | Current directory | Target Vue CLI application. |
-| `--mode NAME` | `development` | Select the Vue CLI environment mode and its `.env` files. |
+| `--mode NAME` | `development` for run, `production` for build | Select the Vue CLI environment mode and its `.env` files. |
 | `--port NUMBER` | Project `devServer.port`, otherwise `8080` | Development server port, from 1 to 65535. |
 | `--host HOST` | `localhost` | Development server bind address. |
 | `--no-lazy` | Lazy compilation enabled | Compile matching dynamic Vue imports eagerly. |
@@ -82,12 +109,12 @@ rspack-runner dev [options]
 | `--no-eval` | Eval-based source maps enabled | Use `cheap-module-source-map` for environments whose CSP blocks `eval`. |
 | `--help`, `-h` | | Print usage. |
 
-Only the `dev` command is supported. `--mode` selects Vue CLI configuration and environment files; the Rspack compilation mode and `NODE_ENV` remain `development`.
+`run` starts the development server. `dev` is kept as an alias. `build` performs a production compilation and writes `dist` inside the target project. `--mode` selects Vue CLI configuration and environment files.
 
 For example:
 
 ```sh
-node src/cli.cjs dev --project ../my-app --mode staging --port 8087 --no-eval
+node src/cli.cjs run --project ../my-app --mode staging --port 8087 --no-eval
 ```
 
 ## How Configuration Is Adapted
@@ -162,7 +189,7 @@ It creates a temporary Vue + TypeScript + SCSS fixture inside the runner's cache
 
 ## Compatibility and Limitations
 
-- **Development only.** Production builds, library mode, and arbitrary Webpack projects are not implemented.
+- **Vue CLI applications only.** Library mode and arbitrary Webpack projects are not implemented.
 - **Vue CLI internals.** Configuration resolution relies on Vue CLI 5 internal APIs, and plugin compatibility depends on the target project's installed versions.
 - **Transpilation only.** tsrs reports syntax diagnostics but does not perform cross-file type checking. Run the application's type-check command separately. Keep its TypeScript dependency if Vue CLI or other plugins require it.
 - **TypeScript emit behavior.** The runner reads `tsconfig.json`, including `extends`, and forwards selected single-file emit options. It ignores the legacy `suppressImplicitAnyIndexErrors` option in memory, raises targets below ES2015 to ES2015, and lets Rspack resolve imports and aliases. Full ES5 compatibility is not promised; Babel still applies the project's JavaScript transforms afterward.

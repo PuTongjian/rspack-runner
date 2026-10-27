@@ -1,7 +1,7 @@
 {
   "name": "vue-cli-rspack-runner",
   "version": "0.1.0",
-  "private": true,
+  "private": false,
   "description": "Run a Vue CLI 5 / Vue 3 project with Rspack without editing its configuration",
   "type": "commonjs",
   "bin": {
@@ -9,6 +9,9 @@
   },
   "scripts": {
     "demo": "node src/cli.cjs dev --project ../assets-supervision-ui --port 8087",
+    "brew:install": "node scripts/brew.cjs install",
+    "brew:update": "node scripts/brew.cjs update",
+    "brew:uninstall": "node scripts/brew.cjs uninstall",
     "test": "node --test test/*.test.cjs",
     "test:e2e": "vitest --config vitest.e2e.config.mjs --run"
   },

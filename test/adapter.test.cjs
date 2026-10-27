@@ -39,12 +39,13 @@ test('nested loader rules keep options and move only Babel caches', () => {
   assert.match(use[3].loader, /rspack/);
 });
 
-test('CLI rejects invalid ports and commands before loading a project', () => {
-  for (const args of [['dev', '--port', 'abc'], ['dev', '--port', '0'], ['build']]) {
+test('CLI validates ports and commands before loading a project', () => {
+  for (const args of [['dev', '--port', 'abc'], ['dev', '--port', '0'], ['wat']]) {
     const result = spawnSync(process.execPath, [path.resolve(__dirname, '../src/cli.cjs'), ...args], { encoding: 'utf8' });
     assert.equal(result.status, 1);
-    assert.match(result.stderr, /port must be|Only the dev/);
+    assert.match(result.stderr, /port must be|Only the run/);
   }
+  assert.equal(spawnSync(process.execPath, [path.resolve(__dirname, '../src/cli.cjs'), '--help'], { encoding: 'utf8' }).status, 0);
 });
 
 test('TypeScript and Vue TSX rules use the runner tsrs loader', () => {

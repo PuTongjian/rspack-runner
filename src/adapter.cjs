@@ -102,9 +102,10 @@ function adaptRules(rules, cacheDir, typescript = {}, embeddedSass = true) {
   }
 }
 
-async function createConfig({ project, mode = 'development', port, host = 'localhost', lazy = true, persistent = true, embeddedSass = true, devtool = 'eval-cheap-module-source-map' }) {
+async function createConfig({ command = 'dev', project, mode = command === 'build' ? 'production' : 'development', port, host = 'localhost', lazy = true, persistent = true, embeddedSass = true, devtool = command === 'build' ? 'source-map' : 'eval-cheap-module-source-map' }) {
+  const isBuild = command === 'build';
   process.chdir(project);
-  process.env.NODE_ENV = 'development';
+  process.env.NODE_ENV = isBuild ? 'production' : 'development';
   process.env.VUE_CLI_BUILD_TARGET = 'app';
   const { service, config, projectRequire } = await loadService(project, mode);
   // Resolve the same vue-loader copy that Vue CLI uses, including pnpm layouts.
@@ -124,7 +125,12 @@ async function createConfig({ project, mode = 'development', port, host = 'local
     if (name === 'MiniCssExtractPlugin') return [new rspack.CssExtractRspackPlugin(plugin.options)];
     if (name === 'HtmlWebpackPlugin') return [new HtmlPlugin(plugin.userOptions)];
     if (name === 'CopyPlugin') {
+      if (isBuild && rspack.CopyRspackPlugin) return [new rspack.CopyRspackPlugin({ patterns: plugin.patterns, options: plugin.options })];
       notices.push('Public assets are served by devServer.static (CopyPlugin omitted in dev).');
+      return [];
+    }
+    if (name === 'MinChunkSizePlugin') {
+      if (isBuild && plugin.options?.minChunkSize) config.optimization.splitChunks = { ...config.optimization.splitChunks, minSize: plugin.options.minChunkSize };
       return [];
     }
     if (['FriendlyErrorsWebpackPlugin', 'CaseSensitivePathsPlugin', 'WebpackBarProgressPlugin', 'ForkTsCheckerWebpackPlugin'].includes(name)) {
@@ -141,9 +147,9 @@ async function createConfig({ project, mode = 'development', port, host = 'local
     enforce: 'post',
     use: [require.resolve('./vue-runtime-compat-loader.cjs')],
   });
-  delete config.optimization.minimizer; // Development compilation does not minify.
-  config.mode = 'development';
-  config.output.path = path.join(cacheDir, 'dist');
+  if (!isBuild) delete config.optimization.minimizer; // Development compilation does not minify.
+  config.mode = isBuild ? 'production' : 'development';
+  config.output.path = isBuild ? path.join(project, 'dist') : path.join(cacheDir, 'dist');
   config.cache = true;
   const buildDependencies = cacheDependencies(project, mode, configFiles, config.module.rules);
   config.experiments = {
@@ -156,8 +162,8 @@ async function createConfig({ project, mode = 'development', port, host = 'local
   };
   config.devtool = devtool;
   config.plugins.push(new VueRuntimeCompatPlugin());
-  config.lazyCompilation = lazy ? { entries: false, imports: true, test: /[\\/](?:src[\\/]views|agilebpm[\\/]package)[\\/].*\.vue$/ } : false;
-  notices.push(`Cache: ${persistent ? 'persistent + memory' : 'memory'}; lazy Vue pages: ${lazy ? 'on' : 'off'}; Sass: ${embeddedSass ? 'embedded modern compiler' : 'project loader'}.`);
+  config.lazyCompilation = !isBuild && lazy ? { entries: false, imports: true, test: /[\\/](?:src[\\/]views|agilebpm[\\/]package)[\\/].*\.vue$/ } : false;
+  notices.push(`Cache: ${persistent ? 'persistent + memory' : 'memory'}; lazy Vue pages: ${!isBuild && lazy ? 'on' : 'off'}; Sass: ${embeddedSass ? 'embedded modern compiler' : 'project loader'}.`);
   config.stats = { preset: 'errors-warnings', warnings: false, children: true };
   config.infrastructureLogging = { level: 'warn' };
   const dev = options.devServer || {};
