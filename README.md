@@ -14,14 +14,16 @@ Rspack Runner reads the target project's Vue CLI configuration, adapts supported
 - **Existing development workflows.** Keep hot module replacement (HMR), API proxy rules, WebSocket proxy options, public assets, and SPA history fallback.
 - **Selected plugin adapters.** Adapt common Webpack plugins and supported unplugin integrations, including auto imports, component registration, `defineOptions`, and Element Plus.
 - **Inline SVG sprites.** Preserve symbol IDs for JavaScript-imported sprites using the target project's SVG tooling and runtime.
+- **Directory tests with Vitest.** Run every matching test under a selected directory with the runner's bundled Vitest.
+- **Standalone command.** Package Node, the runner, and production dependencies into a single executable.
 
 ## Requirements
 
-- Node.js **20.19.0 or later**.
-- An existing **Vue CLI 5 + Vue 3** application with its dependencies already installed and a readable `tsconfig.json`.
+- Node.js **26.13.0 or later** for running from source. The standalone executable includes Node **26.13.0** and needs no system Node installation.
+- For `run` and `build`, an existing **Vue CLI 5 + Vue 3** application with its dependencies already installed and a readable `tsconfig.json`. `test` also works in directories without Vue CLI.
 - A platform supported by the pinned tsrs prebuilt binaries: macOS arm64 or Linux x64/arm64.
 
-The target project supplies Vue CLI, Vue Loader, Babel, PostCSS, and its application-specific loaders and plugins. Rspack Runner supplies Rspack, its development server, tsrs, and the default Sass toolchain.
+The target project supplies Vue CLI, Vue Loader, Babel, PostCSS, and its application-specific loaders and plugins. Rspack Runner supplies Rspack, its development server, tsrs, the default Sass toolchain, and Vitest **5.0.5**.
 
 The current runner pins Rspack **1.7.12**, Rspack Dev Server **1.2.1**, tsrs **0.18.0-ts7.1.0-dev.20260929**, sass-loader **16.0.6**, and sass-embedded **1.105.0**.
 
@@ -68,6 +70,30 @@ The CLI can also build the current project into its `dist` directory:
 rspack-runner build
 ```
 
+## Standalone Executable
+
+Build for the current platform:
+
+```sh
+npm run build:executable
+npm run test:executable
+./dist/rspack-runner --help
+```
+
+The build downloads the Node version pinned in `.node-version`, verifies its SHA-256 against the official release checksums, installs production dependencies in an isolated staging directory, and embeds everything in a Node single executable application. It supports macOS arm64 and Linux x64/arm64; build on the target platform so native dependencies match. macOS builds require `codesign` for ad hoc signing.
+
+Distribute just `dist/rspack-runner`. No separate Node, npm, or runner dependency installation is required. The first launch extracts the bundled runtime and dependencies to `~/.cache/rspack-runner/runtime/<payload-hash>`; later launches reuse it. A writable home directory and space for the extracted dependencies are required. Builds have separate caches; remove old runtime directories when no command is using them. The executable is not notarized for macOS distribution.
+
+To make it available on your PATH:
+
+```sh
+mkdir -p ~/.local/bin
+cp dist/rspack-runner ~/.local/bin/rspack-runner
+# Ensure ~/.local/bin is on your PATH.
+```
+
+Homebrew also builds and installs this standalone executable; Node is only a build dependency.
+
 Homebrew requires formulas to live in a tap. To test this formula locally:
 
 ```sh
@@ -82,12 +108,14 @@ For a shared installation, put `Formula/rspack-runner.rb` in a GitHub repository
 The repository also provides npm commands for managing the default local tap (`local/rspack-runner`):
 
 ```sh
-npm run brew:install   # create/update the tap and install the command
-npm run brew:update    # copy the current formula and reinstall from HEAD
+npm run brew:install   # package the current local source and install the command
+npm run brew:update    # package the current local source and reinstall
 npm run brew:uninstall # uninstall the command and remove the local tap
 ```
 
 `brew:uninstall` removes this formula and its dedicated local tap; it does not uninstall Homebrew itself. Set `RSPACK_RUNNER_TAP=owner/repository` before install/update if you use another tap.
+
+The npm install/update helpers create a complete source archive under `.cache/brew` and generate a local tap formula with its file URL and SHA-256. This includes uncommitted and new source files, so local changes do not need to be pushed before installation. Keep that cache for direct `brew reinstall` calls, or run the npm helper to create a fresh archive. Use the repository's `Formula/rspack-runner.rb` for a shared remote tap; the generated local formula refers to files on this machine.
 
 The installed command always uses the current working directory as the project unless `--project` is supplied. `run` is the user-facing name for the development server; `dev` remains an alias.
 
@@ -95,11 +123,13 @@ The installed command always uses the current working directory as the project u
 
 ```text
 rspack-runner <run|build> [options]
+rspack-runner test [DIRECTORY] [--project PATH] [--config PATH]
 ```
 
 | Option | Default | Behavior |
 | --- | --- | --- |
-| `--project PATH` | Current directory | Target Vue CLI application. |
+| `--project PATH` | Current directory | Target Vue CLI application, or test project root. |
+| `--config PATH` | Vitest config discovery | Vitest configuration file, relative to the test project root; only for `test`. |
 | `--mode NAME` | `development` for run, `production` for build | Select the Vue CLI environment mode and its `.env` files. |
 | `--port NUMBER` | Project `devServer.port`, otherwise `8080` | Development server port, from 1 to 65535. |
 | `--host HOST` | `localhost` | Development server bind address. |
@@ -115,6 +145,33 @@ For example:
 
 ```sh
 node src/cli.cjs run --project ../my-app --mode staging --port 8087 --no-eval
+```
+
+## Running Tests
+
+```sh
+# Run all tests under the current project.
+rspack-runner test
+
+# Recursively run tests in a selected directory.
+rspack-runner test ./tests
+rspack-runner test /absolute/path/to/tests
+
+# Resolve the directory and config relative to a different project root.
+rspack-runner test tests/unit --project /path/to/app
+rspack-runner test test/e2e --config vitest.e2e.config.mjs
+```
+
+Tests run once and the command exits: success returns `0`; failing tests, missing directories, or no matching files return a nonzero status. By default Vitest discovers `*.test.*` and `*.spec.*` files in JavaScript/TypeScript (including JSX/TSX and ESM variants). Existing `vitest.config.*` or `vite.config.*` files are discovered at the project root, and their include/exclude patterns, environments, setup files, and plugins still apply within the selected directory. Config files use Node's native loader and TypeScript stripping; `vitest/config` and `vite` helpers fall back to the runner's dependencies. TypeScript syntax that requires code generation (such as enums) is unsupported in config files.
+
+Tests can import `test`, `expect`, and other APIs from the bundled `vitest` without installing Vitest in the target project. Application dependencies and optional test tools such as Playwright, jsdom, and Vue plugins must be installed in that project when needed; browser binaries are not included.
+
+```js
+import { test, expect } from 'vitest'
+
+test('adds two numbers', () => {
+  expect(1 + 2).toBe(3)
+})
 ```
 
 ## How Configuration Is Adapted
@@ -176,6 +233,8 @@ npm test
 ```
 
 The suite covers proxy conversion, nested loader adaptation, CLI validation, tsrs output and diagnostics, cache invalidation, Sass compatibility, and lazy-compilation middleware with hot-update assets.
+
+It also checks directory-scoped Vitest execution, nested JS/TS discovery, configuration loading, and failure exit codes. `npm run test:executable` verifies the packaged binary with no system Node on PATH, including its Rspack, Sass, and tsrs native dependencies.
 
 An additional browser smoke script uses the reference application's configuration and dependencies:
 

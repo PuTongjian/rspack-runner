@@ -4,22 +4,19 @@ class RspackRunner < Formula
   version "0.1.0"
   head "https://github.com/PuTongjian/rspack-runner.git", branch: "main"
 
-  depends_on "node@20"
+  depends_on "node" => :build
 
   def install
-    if ENV["RSPACK_RUNNER_SOURCE"]
-      source = ENV["RSPACK_RUNNER_SOURCE"]
-      %w[package.json package-lock.json README.md src scripts].each do |entry|
-        cp_r "#{source}/#{entry}", entry
-      end
-    end
-    system "npm", "ci", "--omit=dev"
-    chmod 0755, "src/cli.cjs"
-    libexec.install Dir["*"]
-    bin.install_symlink libexec/"src/cli.cjs" => "rspack-runner"
+    system "node", "scripts/build-executable.cjs"
+    bin.install "dist/rspack-runner"
   end
 
   test do
     assert_match "Usage: rspack-runner", shell_output("#{bin}/rspack-runner --help")
+    (testpath/"probe.test.mjs").write <<~JS
+      import { test, expect } from 'vitest';
+      test('bundled Vitest', () => expect(1 + 1).toBe(2));
+    JS
+    system bin/"rspack-runner", "test", testpath
   end
 end

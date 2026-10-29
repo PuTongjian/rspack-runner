@@ -2,6 +2,8 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
+const { createHash } = require('node:crypto');
+const { pathToFileURL } = require('node:url');
 
 const root = path.resolve(__dirname, '..');
 const formulaName = 'rspack-runner';
@@ -40,42 +42,31 @@ function formulaPath() {
   return path.join(tapDirectory(), 'Formula', `${formulaName}.rb`);
 }
 
-function fixInstalledMode() {
-  const prefix = capture(brew, ['--prefix', formulaName]);
-  if (!prefix) return;
-  const cli = path.join(prefix, 'libexec', 'src', 'cli.cjs');
-  if (fs.existsSync(cli)) fs.chmodSync(cli, 0o755);
-}
-
-function syncInstalledFiles() {
-  const prefix = capture(brew, ['--prefix', formulaName]);
-  if (!prefix) return;
-  const destination = path.join(prefix, 'libexec');
-  for (const entry of ['package.json', 'package-lock.json', 'README.md', 'src', 'scripts']) {
-    const target = path.join(destination, entry);
-    fs.rmSync(target, { recursive: true, force: true });
-    fs.cpSync(path.join(root, entry), target, { recursive: true });
-  }
-  fixInstalledMode();
-}
-
 function ensureTap() {
   brewRepository();
   if (!fs.existsSync(tapDirectory())) run(brew, ['tap-new', tap]);
   fs.mkdirSync(path.dirname(formulaPath()), { recursive: true });
-  fs.copyFileSync(path.join(root, 'Formula', `${formulaName}.rb`), formulaPath());
+  const cache = path.join(root, '.cache', 'brew');
+  fs.mkdirSync(cache, { recursive: true });
+  const archive = path.join(cache, 'source.tar.gz');
+  run('tar', ['-czf', archive, '.node-version', 'package.json', 'package-lock.json', 'README.md', 'src', 'scripts'], { env: { COPYFILE_DISABLE: '1' } });
+  const checksum = createHash('sha256').update(fs.readFileSync(archive)).digest('hex');
+  const sourceArchive = path.join(cache, `source-${checksum}.tar.gz`);
+  fs.renameSync(archive, sourceArchive);
+  const url = pathToFileURL(sourceArchive).href;
+  const formula = fs.readFileSync(path.join(root, 'Formula', `${formulaName}.rb`), 'utf8')
+    .replace(/^  head .*$/m, `  url "${url}"\n  sha256 "${checksum}"`);
+  fs.writeFileSync(formulaPath(), formula);
 }
 
 function install() {
   ensureTap();
-  run(brew, ['install', '--HEAD', '--build-from-source', `${tap}/${formulaName}`], { env: { RSPACK_RUNNER_SOURCE: root } });
-  syncInstalledFiles();
+  run(brew, ['install', '--build-from-source', `${tap}/${formulaName}`]);
 }
 
 function update() {
   ensureTap();
-  run(brew, ['reinstall', '--build-from-source', `${tap}/${formulaName}`], { env: { RSPACK_RUNNER_SOURCE: root } });
-  syncInstalledFiles();
+  run(brew, ['reinstall', '--build-from-source', `${tap}/${formulaName}`]);
 }
 
 function uninstall() {

@@ -9,14 +9,16 @@
   },
   "scripts": {
     "demo": "node src/cli.cjs dev --project ../assets-supervision-ui --port 8087",
+    "build:executable": "node scripts/build-executable.cjs",
     "brew:install": "node scripts/brew.cjs install",
     "brew:update": "node scripts/brew.cjs update",
     "brew:uninstall": "node scripts/brew.cjs uninstall",
     "test": "node --test test/*.test.cjs",
+    "test:executable": "node scripts/test-executable.cjs",
     "test:e2e": "vitest --config vitest.e2e.config.mjs --run"
   },
   "engines": {
-    "node": ">=20.19.0"
+    "node": ">=26.13.0"
   },
   "dependencies": {
     "@rspack/core": "1.7.12",
@@ -25,11 +27,11 @@
     "sass-embedded": "1.105.0",
     "sass-loader": "16.0.6",
     "source-map": "0.6.1",
-    "tsrs": "0.18.0-ts7.1.0-dev.20260929"
+    "tsrs": "0.18.0-ts7.1.0-dev.20260929",
+    "vitest": "5.0.5"
   },
   "devDependencies": {
-    "@vitest/browser": "^5.0.5",
-    "playwright": "^1.64.1",
-    "vitest": "^5.0.5"
+    "@vitest/browser": "5.0.5",
+    "playwright": "^1.64.1"
   }
 }
