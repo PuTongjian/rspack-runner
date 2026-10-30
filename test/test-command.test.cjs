@@ -57,3 +57,62 @@ test('test command honors discovered and explicit Vitest config while running on
   assert.equal(explicit.status, 0, explicit.stdout + explicit.stderr);
   assert.match(explicit.stdout, /1 passed/);
 });
+
+test('test command uses bundled Vue plugin, jsdom, and V8 coverage in an external project', async t => {
+  const root = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'runner-vue-test-')));
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+  await fs.mkdir(path.join(root, 'node_modules'));
+  // The target supplies its Vue runtime, without installing any test tooling.
+  await fs.symlink(path.dirname(require.resolve('vue/package.json')), path.join(root, 'node_modules', 'vue'), 'dir');
+  await fs.mkdir(path.join(root, 'src'));
+  await fs.writeFile(path.join(root, 'src', 'Counter.vue'), `
+<script setup lang="ts">
+import { ref } from 'vue';
+const count = ref<number>(0);
+</script>
+<template><button @click="count++">{{ count }}</button></template>
+`);
+  await fs.writeFile(path.join(root, 'src', 'Counter.test.ts'), `
+import { test, expect } from 'vitest';
+import { createApp, nextTick } from 'vue';
+import Counter from './Counter.vue';
+test('Vue component renders and reacts to DOM events', async () => {
+  const host = document.createElement('div');
+  document.body.appendChild(host);
+  const app = createApp(Counter);
+  try {
+    app.mount(host);
+    const button = host.querySelector('button')!;
+    expect(button.textContent).toBe('0');
+    button.click();
+    await nextTick();
+    expect(button.textContent).toBe('1');
+  } finally { app.unmount(); host.remove(); }
+});
+`);
+  await fs.writeFile(path.join(root, 'vitest.config.mjs'), `
+import { defineConfig } from 'vitest/config';
+import vue from '@vitejs/plugin-vue';
+export default defineConfig({
+  plugins: [vue()],
+  test: {
+    environment: 'jsdom',
+    coverage: {
+      enabled: true, provider: 'v8', include: ['src/Counter.vue'],
+      reporter: ['text', 'json', 'html', 'lcov'],
+      thresholds: { statements: 100, branches: 100, functions: 100, lines: 100 },
+    },
+  },
+});
+`);
+  const result = spawnSync(process.execPath, [cli, 'test', 'src', '--project', root], { encoding: 'utf8', timeout: 30_000 });
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.match(result.stdout, /1 passed/);
+  const coverage = JSON.parse(await fs.readFile(path.join(root, 'coverage', 'coverage-final.json'), 'utf8'));
+  const component = coverage[path.join(root, 'src', 'Counter.vue')];
+  assert.ok(component, 'coverage must map back to the Vue source');
+  assert.ok(Object.values(component.s).length > 0);
+  assert.ok(Object.values(component.s).every(hits => hits > 0), 'all component statements must be covered');
+  await fs.access(path.join(root, 'coverage', 'index.html'));
+  assert.match(await fs.readFile(path.join(root, 'coverage', 'lcov.info'), 'utf8'), /SF:src\/Counter.vue/);
+});

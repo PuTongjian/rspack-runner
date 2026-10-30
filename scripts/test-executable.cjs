@@ -52,7 +52,48 @@ test('embedded Node and native dependencies', async () => {
     const configured = run(['test', 'cases']);
     assert.equal(configured.status, 0, configured.stdout + configured.stderr);
     assert.match(configured.stdout, /1 passed/);
-    console.log('Standalone executable passed: no system Node, nested JS/TS tests, native Rspack/Sass/tsrs, failure exit code.');
+    await fs.mkdir(path.join(root, 'components'));
+    await fs.writeFile(path.join(root, 'components', 'Greeting.vue'), '<script setup lang="ts">defineProps<{ message: string }>();</script><template><p>{{ message }}</p></template>');
+    await fs.writeFile(path.join(root, 'components', 'Greeting.test.ts'), `
+import { test, expect } from 'vitest';
+import { createApp, h, nextTick, reactive } from 'vue';
+import Greeting from './Greeting.vue';
+test('packaged Vue component and jsdom', async () => {
+  const host = document.createElement('div');
+  const props = reactive({ message: 'hello' });
+  const app = createApp({ setup: () => () => h(Greeting, { message: props.message }) });
+  try {
+    app.mount(host);
+    expect(host.textContent).toBe('hello');
+    props.message = 'updated';
+    await nextTick();
+    expect(host.textContent).toBe('updated');
+  } finally { app.unmount(); }
+});
+`);
+    await fs.writeFile(path.join(root, 'vue.config.mjs'), `
+import { createRequire } from 'node:module';
+import { defineConfig } from 'vitest/config';
+import vue from '@vitejs/plugin-vue';
+const runnerRequire = createRequire(process.execPath);
+export default defineConfig({
+  plugins: [vue()],
+  resolve: { alias: { vue: runnerRequire.resolve('vue') } },
+  test: {
+    environment: 'jsdom',
+    coverage: { enabled: true, provider: 'v8', include: ['components/Greeting.vue'], reporter: ['json', 'html', 'lcov'] },
+  },
+});
+`);
+    const component = run(['test', 'components', '--config', 'vue.config.mjs']);
+    assert.equal(component.status, 0, component.stdout + component.stderr);
+    assert.match(component.stdout, /1 passed/);
+    const coverage = JSON.parse(await fs.readFile(path.join(root, 'coverage', 'coverage-final.json'), 'utf8'));
+    const source = coverage[path.join(await fs.realpath(root), 'components', 'Greeting.vue')];
+    assert.ok(source && Object.values(source.s).some(hits => hits > 0), 'packaged coverage must map to Vue source');
+    await fs.access(path.join(root, 'coverage', 'index.html'));
+    await fs.access(path.join(root, 'coverage', 'lcov.info'));
+    console.log('Standalone executable passed: no system Node, nested JS/TS tests, native Rspack/Sass/tsrs, failure exit code, Vue components/jsdom/V8 coverage.');
   } finally {
     await fs.rm(root, { recursive: true, force: true });
   }

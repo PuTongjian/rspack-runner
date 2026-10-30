@@ -23,7 +23,7 @@ Rspack Runner reads the target project's Vue CLI configuration, adapts supported
 - For `run` and `build`, an existing **Vue CLI 5 + Vue 3** application with its dependencies already installed and a readable `tsconfig.json`. `test` also works in directories without Vue CLI.
 - A platform supported by the pinned tsrs prebuilt binaries: macOS arm64 or Linux x64/arm64.
 
-The target project supplies Vue CLI, Vue Loader, Babel, PostCSS, and its application-specific loaders and plugins. Rspack Runner supplies Rspack, its development server, tsrs, the default Sass toolchain, and Vitest **5.0.5**.
+The target project supplies Vue CLI, Vue Loader, Babel, PostCSS, and its application-specific loaders and plugins. Rspack Runner supplies Rspack, its development server, tsrs, the default Sass toolchain, Vitest **5.0.5**, `@vitejs/plugin-vue` **6.0.10**, jsdom **30.1.3**, and `@vitest/coverage-v8` **5.0.5**, including in the standalone executable.
 
 The current runner pins Rspack **1.7.12**, Rspack Dev Server **1.2.1**, tsrs **0.18.0-ts7.1.0-dev.20260929**, sass-loader **16.0.6**, and sass-embedded **1.105.0**.
 
@@ -162,9 +162,9 @@ rspack-runner test tests/unit --project /path/to/app
 rspack-runner test test/e2e --config vitest.e2e.config.mjs
 ```
 
-Tests run once and the command exits: success returns `0`; failing tests, missing directories, or no matching files return a nonzero status. By default Vitest discovers `*.test.*` and `*.spec.*` files in JavaScript/TypeScript (including JSX/TSX and ESM variants). Existing `vitest.config.*` or `vite.config.*` files are discovered at the project root, and their include/exclude patterns, environments, setup files, and plugins still apply within the selected directory. Config files use Node's native loader and TypeScript stripping; `vitest/config` and `vite` helpers fall back to the runner's dependencies. TypeScript syntax that requires code generation (such as enums) is unsupported in config files.
+Tests run once and the command exits: success returns `0`; failing tests, missing directories, or no matching files return a nonzero status. By default Vitest discovers `*.test.*` and `*.spec.*` files in JavaScript/TypeScript (including JSX/TSX and ESM variants). Existing `vitest.config.*` or `vite.config.*` files are discovered at the project root, and their include/exclude patterns, environments, setup files, and plugins still apply within the selected directory. Config files use Node's native loader and TypeScript stripping; `vitest/config`, `vite`, and `@vitejs/plugin-vue` imports fall back to the runner's dependencies when unavailable in the target project. TypeScript syntax that requires code generation (such as enums) is unsupported in config files.
 
-Tests can import `test`, `expect`, and other APIs from the bundled `vitest` without installing Vitest in the target project. Application dependencies and optional test tools such as Playwright, jsdom, and Vue plugins must be installed in that project when needed; browser binaries are not included.
+Tests can import `test`, `expect`, and other APIs from the bundled `vitest` without installing Vitest in the target project. Vue component compilation, the jsdom environment, and V8 coverage use bundled tooling. The target project still supplies its Vue runtime, application dependencies, and any additional test helpers such as `@vue/test-utils` or Playwright; browser binaries are not included.
 
 ```js
 import { test, expect } from 'vitest'
@@ -173,6 +173,28 @@ test('adds two numbers', () => {
   expect(1 + 2).toBe(3)
 })
 ```
+
+For Vue 3 component tests with coverage, add a `vitest.config.mjs` in the target project:
+
+```js
+import { defineConfig } from 'vitest/config'
+import vue from '@vitejs/plugin-vue'
+
+export default defineConfig({
+  plugins: [vue()],
+  test: {
+    environment: 'jsdom',
+    coverage: {
+      enabled: true,
+      provider: 'v8',
+      include: ['src/**/*.{js,ts,vue}'],
+      reporter: ['text', 'html', 'lcov'],
+    },
+  },
+})
+```
+
+Run `rspack-runner test tests/unit` (or your test directory). Tests can import `.vue` components, and coverage reports are written to the target project's `coverage/` directory. Set `coverage.thresholds` in the config to fail the command when coverage falls below your requirements. Set `coverage.enabled` to `false` when coverage is not needed.
 
 ## How Configuration Is Adapted
 
@@ -234,7 +256,7 @@ npm test
 
 The suite covers proxy conversion, nested loader adaptation, CLI validation, tsrs output and diagnostics, cache invalidation, Sass compatibility, and lazy-compilation middleware with hot-update assets.
 
-It also checks directory-scoped Vitest execution, nested JS/TS discovery, configuration loading, and failure exit codes. `npm run test:executable` verifies the packaged binary with no system Node on PATH, including its Rspack, Sass, and tsrs native dependencies.
+It also checks directory-scoped Vitest execution, nested JS/TS discovery, configuration loading, failure exit codes, Vue component DOM updates in jsdom, and V8 coverage mapped to Vue source with HTML/LCOV reports. `npm run test:executable` verifies the packaged binary with no system Node on PATH, including its Rspack, Sass, and tsrs native dependencies and bundled Vue test tooling.
 
 An additional browser smoke script uses the reference application's configuration and dependencies:
 

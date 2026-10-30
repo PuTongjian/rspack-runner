@@ -14,7 +14,7 @@ async function runTests({ project, directory, config }) {
     resolve(specifier, context, nextResolve) {
       try { return nextResolve(specifier, context); }
       catch (error) {
-        if (error.code !== 'ERR_MODULE_NOT_FOUND' || !['vitest/config', 'vite'].includes(specifier)) throw error;
+        if (error.code !== 'ERR_MODULE_NOT_FOUND' || !['vitest/config', 'vite', '@vitejs/plugin-vue'].includes(specifier)) throw error;
         return nextResolve(pathToFileURL(require.resolve(specifier)).href, context);
       }
     },
