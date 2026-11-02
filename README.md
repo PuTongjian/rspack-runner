@@ -123,7 +123,7 @@ The installed command always uses the current working directory as the project u
 
 ```text
 rspack-runner <run|build> [options]
-rspack-runner test [DIRECTORY] [--project PATH] [--config PATH]
+rspack-runner test [DIRECTORY] [--project PATH] [--config PATH] [--ui [--port NUMBER] [--host HOST]]
 ```
 
 | Option | Default | Behavior |
@@ -131,8 +131,9 @@ rspack-runner test [DIRECTORY] [--project PATH] [--config PATH]
 | `--project PATH` | Current directory | Target Vue CLI application, or test project root. |
 | `--config PATH` | Vitest config discovery | Vitest configuration file, relative to the test project root; only for `test`. |
 | `--mode NAME` | `development` for run, `production` for build | Select the Vue CLI environment mode and its `.env` files. |
-| `--port NUMBER` | Project `devServer.port`, otherwise `8080` | Development server port, from 1 to 65535. |
-| `--host HOST` | `localhost` | Development server bind address. |
+| `--port NUMBER` | Project `devServer.port`, otherwise `8080`; `51204` for test UI | Development server or live test UI port, from 1 to 65535. For `test`, requires `--ui`. |
+| `--host HOST` | `localhost`; `127.0.0.1` for test UI | Development server or live test UI bind address. |
+| `--ui` | Off | Keep tests in watch mode and serve Vitest UI. Only for `test`. |
 | `--no-lazy` | Lazy compilation enabled | Compile matching dynamic Vue imports eagerly. |
 | `--no-persistent-cache` | Persistent cache enabled | Disable disk caching while retaining memory caching. |
 | `--no-embedded-sass` | Embedded Sass enabled | Retain the target project's Sass loader and compiler. |
@@ -163,6 +164,42 @@ rspack-runner test test/e2e --config vitest.e2e.config.mjs
 ```
 
 Tests run once and the command exits: success returns `0`; failing tests, missing directories, or no matching files return a nonzero status. By default Vitest discovers `*.test.*` and `*.spec.*` files in JavaScript/TypeScript (including JSX/TSX and ESM variants). Existing `vitest.config.*` or `vite.config.*` files are discovered at the project root, and their include/exclude patterns, environments, setup files, and plugins still apply within the selected directory. Config files use Node's native loader and TypeScript stripping; `vitest/config`, `vite`, and `@vitejs/plugin-vue` imports fall back to the runner's dependencies when unavailable in the target project. TypeScript syntax that requires code generation (such as enums) is unsupported in config files.
+
+### Visual results and browser traces
+
+```sh
+# Live, authenticated Vitest UI; tests rerun when source files change.
+rspack-runner test --ui
+rspack-runner test tests --ui --port 51205
+```
+
+Open the token-bearing URL printed in the terminal, normally `http://127.0.0.1:51204/__vitest__/?token=...`. The token initializes an HTTP-only UI cookie; an unauthenticated URL returns 403. The UI stays running after tests finish and can rerun selected tests. Stop it with Ctrl+C. The default test command still runs once; do not use `--ui` in CI. The UI uses a strict port so an occupied port fails instead of silently selecting another.
+
+The runner bundles `@vitest/ui`, `@vitest/browser-playwright`, and Playwright at compatible versions. Browser binaries are not bundled. A target project can enable the official HTML reporter and Vitest's built-in DOM trace view without installing these packages:
+
+```js
+import { defineConfig } from 'vitest/config'
+import { playwright } from '@vitest/browser-playwright'
+
+export default defineConfig({
+  test: {
+    reporters: ['default', ['html', { outputDir: '.vitest', singleFile: true }]],
+    browser: {
+      enabled: true,
+      headless: true,
+      provider: playwright({
+        launchOptions: { executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH },
+      }),
+      instances: [{ browser: 'chromium' }],
+      traceView: true,
+    },
+  },
+})
+```
+
+Use `vitest/browser` locators, `expect.element`, and `page.mark()` in browser-mode tests to record replayable steps. `browser.traceView` applies to Vitest Browser Mode; a Node test that launches its own Playwright page is not automatically a Vitest DOM trace. The live UI and generated HTML report can replay recorded traces. `singleFile: true` embeds UI assets, results and traces into `.vitest/index.html`, which can be opened directly or shared; HTML coverage remains separate. For large suites, omit `singleFile` and serve the complete report directory.
+
+See [Vitest UI](https://vitest.dev/guide/ui) and [Trace View](https://vitest.dev/guide/browser/trace-view) for the upstream configuration and current experimental limitations.
 
 Tests can import `test`, `expect`, and other APIs from the bundled `vitest` without installing Vitest in the target project. Vue component compilation, the jsdom environment, and V8 coverage use bundled tooling. The target project still supplies its Vue runtime, application dependencies, and any additional test helpers such as `@vue/test-utils` or Playwright; browser binaries are not included.
 

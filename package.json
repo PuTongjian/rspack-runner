@@ -24,9 +24,12 @@
     "@rspack/core": "1.7.12",
     "@rspack/dev-server": "1.2.1",
     "@vitejs/plugin-vue": "6.0.10",
+    "@vitest/browser-playwright": "5.0.5",
     "@vitest/coverage-v8": "5.0.5",
+    "@vitest/ui": "5.0.5",
     "html-webpack-plugin": "5.6.6",
     "jsdom": "30.1.3",
+    "playwright": "1.64.1",
     "sass-embedded": "1.105.0",
     "sass-loader": "16.0.6",
     "source-map": "0.6.1",
@@ -34,7 +37,6 @@
     "vitest": "5.0.5"
   },
   "devDependencies": {
-    "@vitest/browser": "5.0.5",
-    "playwright": "^1.64.1"
+    "@vitest/browser": "5.0.5"
   }
 }
