@@ -129,7 +129,7 @@ rspack-runner test [DIRECTORY] [--project PATH] [--config PATH] [--ui [--port NU
 | Option | Default | Behavior |
 | --- | --- | --- |
 | `--project PATH` | Current directory | Target Vue CLI application, or test project root. |
-| `--config PATH` | Vitest config discovery | Vitest configuration file, relative to the test project root; only for `test`. |
+| `--config PATH` | Interactive recursive config selection | Vitest configuration file, relative to the test project root; only for `test`. |
 | `--mode NAME` | `development` for run, `production` for build | Select the Vue CLI environment mode and its `.env` files. |
 | `--port NUMBER` | Project `devServer.port`, otherwise `8080`; `51204` for test UI | Development server or live test UI port, from 1 to 65535. For `test`, requires `--ui`. |
 | `--host HOST` | `localhost`; `127.0.0.1` for test UI | Development server or live test UI bind address. |
@@ -151,7 +151,7 @@ node src/cli.cjs run --project ../my-app --mode staging --port 8087 --no-eval
 ## Running Tests
 
 ```sh
-# Run all tests under the current project.
+# Choose one or more Vitest configurations under the current directory.
 rspack-runner test
 
 # Recursively run tests in a selected directory.
@@ -163,7 +163,9 @@ rspack-runner test tests/unit --project /path/to/app
 rspack-runner test test/e2e --config vitest.e2e.config.mjs
 ```
 
-Tests run once and the command exits: success returns `0`; failing tests, missing directories, or no matching files return a nonzero status. By default Vitest discovers `*.test.*` and `*.spec.*` files in JavaScript/TypeScript (including JSX/TSX and ESM variants). Existing `vitest.config.*` or `vite.config.*` files are discovered at the project root, and their include/exclude patterns, environments, setup files, and plugins still apply within the selected directory. Config files use Node's native loader and TypeScript stripping; `vitest/config`, `vite`, and `@vitejs/plugin-vue` imports fall back to the runner's dependencies when unavailable in the target project. TypeScript syntax that requires code generation (such as enums) is unsupported in config files.
+Without `--config`, the command recursively searches the current working directory for `vitest.config.*` and `vitest.<name>.config.*` files (`js`, `ts`, `mjs`, `mts`, `cjs`, `cts`), skipping `node_modules`, `.git`, and symbolic links. An Ink picker lets you move with ↑/↓, toggle configurations with Space, and run the selection with Enter. Esc or Ctrl+C cancels. Each selected configuration uses the original working directory as its test root unless `--project` is supplied; an explicit test directory remains relative to `--project` or the original working directory. Selected configurations run sequentially, continuing after failures. In `--ui` mode they run together on consecutive ports starting at `--port` (default `51204`). Non-interactive callers must pass `--config` when configurations are found. Configuration validity is checked by Vitest when selected configurations run.
+
+If no matching configuration is found, the command uses normal Vitest root discovery, including `vite.config.*`. Tests run once and the command exits: success returns `0`; failing tests, missing directories, or no matching files return a nonzero status. By default Vitest discovers `*.test.*` and `*.spec.*` files in JavaScript/TypeScript (including JSX/TSX and ESM variants). Configuration include/exclude patterns, environments, setup files, and plugins apply within the selected directory. Config files use Node's native loader and TypeScript stripping; `vitest/config`, `vite`, and `@vitejs/plugin-vue` imports fall back to the runner's dependencies when unavailable in the target project. TypeScript syntax that requires code generation (such as enums) is unsupported in config files.
 
 ### Visual results and browser traces
 

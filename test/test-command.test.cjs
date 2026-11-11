@@ -43,7 +43,7 @@ test('test command runs nested JS/TS cases only in the selected external directo
   assert.match(external.stdout, /2 passed/);
 });
 
-test('test command honors discovered and explicit Vitest config while running once', async t => {
+test('test command honors explicit Vitest config while running once', async t => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'runner-config-'));
   t.after(() => fs.rm(root, { recursive: true, force: true }));
   await fs.mkdir(path.join(root, 'cases'));
@@ -52,7 +52,7 @@ test('test command honors discovered and explicit Vitest config while running on
   const defaultConfig = path.join(root, 'vitest.config.mjs');
   await fs.writeFile(defaultConfig, config);
   const run = args => spawnSync(process.execPath, [cli, 'test', '--project', root, ...args], { encoding: 'utf8', timeout: 30_000 });
-  const discovered = run([]);
+  const discovered = run(['--config', 'vitest.config.mjs']);
   assert.equal(discovered.status, 0, discovered.stdout + discovered.stderr);
   assert.match(discovered.stdout, /1 passed/);
   await fs.rename(defaultConfig, path.join(root, 'custom.config.mjs'));
@@ -109,7 +109,7 @@ export default defineConfig({
   },
 });
 `);
-  const result = spawnSync(process.execPath, [cli, 'test', 'src', '--project', root], { encoding: 'utf8', timeout: 30_000 });
+  const result = spawnSync(process.execPath, [cli, 'test', 'src', '--project', root, '--config', 'vitest.config.mjs'], { encoding: 'utf8', timeout: 30_000 });
   assert.equal(result.status, 0, result.stdout + result.stderr);
   assert.match(result.stdout, /1 passed/);
   const coverage = JSON.parse(await fs.readFile(path.join(root, 'coverage', 'coverage-final.json'), 'utf8'));
@@ -144,7 +144,7 @@ test('test --ui serves the authenticated live UI, reruns changes, and closes on 
   const port = await availablePort();
   const file = path.join(root, 'visual.test.mjs');
   await fs.writeFile(file, "import { test, expect } from 'vitest'; test('visual result', () => expect(2 + 3).toBe(5));");
-  const child = spawn(process.execPath, [cli, 'test', '--project', root, '--ui', '--port', String(port)], { stdio: ['ignore', 'pipe', 'pipe'] });
+  const child = spawn(process.execPath, [cli, 'test', '--project', root, '--ui', '--port', String(port)], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] });
   let output = '';
   child.stdout.on('data', chunk => { output += chunk; });
   child.stderr.on('data', chunk => { output += chunk; });
@@ -195,7 +195,7 @@ export default defineConfig({ test: {
   browser: { enabled: true, headless: true, provider: playwright({ launchOptions: { executablePath: ${JSON.stringify(executablePath)} } }), instances: [{ browser: 'chromium' }], traceView: true },
 } });
 `);
-  const result = spawnSync(process.execPath, [cli, 'test', '--project', root], { encoding: 'utf8', timeout: 25_000 });
+  const result = spawnSync(process.execPath, [cli, 'test', '--project', root, '--config', 'vitest.config.mjs'], { encoding: 'utf8', timeout: 25_000 });
   assert.equal(result.status, 0, result.stdout + result.stderr);
   assert.match(result.stdout, /1 passed/);
   const html = await fs.readFile(path.join(root, 'report', 'index.html'), 'utf8');

@@ -25,8 +25,8 @@ async function main() {
     const port = values.port === undefined ? undefined : Number(values.port);
     if (port !== undefined && (!Number.isInteger(port) || port < 1 || port > 65535)) throw new Error('--port must be an integer between 1 and 65535.');
     if (port !== undefined && !values.ui) throw new Error('--port requires --ui for the test command.');
-    const { runTests } = require('./test-runner.cjs');
-    await runTests({ project: values.project, directory: positionals[1], config: values.config,
+    const { runTestCommand } = require('./test-selection.cjs');
+    await runTestCommand({ project: values.project, directory: positionals[1], config: values.config,
       ui: values.ui, port, host: values.host === 'localhost' ? '127.0.0.1' : values.host });
     return;
   }
