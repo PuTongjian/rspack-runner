@@ -16,9 +16,11 @@ test('proxy conversion preserves rewrite, websocket and headers', () => {
   assert.throws(() => normalizeProxy('http://localhost:9000'), /object\/array/);
 });
 
-test('nested loader rules keep options and move only Babel caches', () => {
+test('nested loader rules remove Webpack workers and preserve loader options', () => {
   const options = { additionalData: () => 'original' };
   const rules = [{ oneOf: [{ use: [
+    'thread-loader',
+    { loader: '/project/node_modules/thread-loader/dist/cjs.js' },
     { loader: '/project/node_modules/babel-loader/lib/index.js', options: { cacheDirectory: '/project/cache', presets: ['original'] } },
     { loader: '/project/node_modules/sass-loader/dist/cjs.js', options },
     { loader: 'svg-sprite-loader', options: { symbolId: 'icon-[name]' } },
@@ -26,6 +28,7 @@ test('nested loader rules keep options and move only Babel caches', () => {
   ] }] }];
   adaptRules(rules, '/runner/cache');
   const use = rules[0].oneOf[0].use;
+  assert.equal(use.some(item => item.loader.includes('thread-loader')), false);
   assert.equal(use[0].options.cacheDirectory, '/runner/cache/babel-uncompressed');
   assert.equal(use[0].options.cacheCompression, false);
   assert.deepEqual(use[0].options.presets, ['original']);

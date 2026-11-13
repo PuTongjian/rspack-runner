@@ -69,7 +69,7 @@ async function main() {
     await page.getByRole('button', { name: /RUNNER_BEFORE/ }).click();
     await page.getByText('LAZY_LOADED', { exact: true }).waitFor();
     const messages = [];
-    socket = new WebSocket(base.replace('http:', 'ws:') + '/ws', { origin: base });
+    socket = new WebSocket(base.replace('http:', 'ws:') + '/ws', { headers: { Origin: base } });
     socket.on('message', data => messages.push(JSON.parse(String(data))));
     await new Promise((resolve, reject) => { socket.once('open', resolve); socket.once('error', reject); });
     const update = nextCompilation(compiler, firstHash);

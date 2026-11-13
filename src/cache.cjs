@@ -4,7 +4,7 @@ const { createHash } = require('node:crypto');
 
 function cacheDependencies(project, mode, tsconfigFiles, rules) {
   const files = new Set(tsconfigFiles);
-  for (const name of ['package.json', 'package-lock.json', 'pnpm-lock.yaml', 'yarn.lock', 'vue.config.js', 'vue.config.cjs', 'babel.config.js', 'babel.config.cjs', '.babelrc', '.babelrc.json', '.babelrc.js', '.babelrc.cjs', 'postcss.config.js', 'postcss.config.cjs', '.postcssrc', '.postcssrc.json', '.postcssrc.js', '.browserslistrc', '.env', '.env.local', `.env.${mode}`, `.env.${mode}.local`]) {
+  for (const name of ['package.json', 'bun.lock', 'package-lock.json', 'pnpm-lock.yaml', 'yarn.lock', 'vue.config.js', 'vue.config.cjs', 'babel.config.js', 'babel.config.cjs', '.babelrc', '.babelrc.json', '.babelrc.js', '.babelrc.cjs', 'postcss.config.js', 'postcss.config.cjs', '.postcssrc', '.postcssrc.json', '.postcssrc.js', '.browserslistrc', '.env', '.env.local', `.env.${mode}`, `.env.${mode}.local`]) {
     const file = path.join(project, name);
     if (fs.existsSync(file)) files.add(file);
   }
@@ -18,7 +18,7 @@ function cacheDependencies(project, mode, tsconfigFiles, rules) {
     }
   };
   visit(rules);
-  files.add(path.resolve(__dirname, '../package-lock.json'));
+  files.add(path.resolve(__dirname, '../bun.lock'));
   files.add(path.resolve(__dirname, '../package.json'));
   return [...files].sort();
 }

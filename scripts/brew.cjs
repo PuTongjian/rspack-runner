@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
@@ -49,7 +49,7 @@ function ensureTap() {
   const cache = path.join(root, '.cache', 'brew');
   fs.mkdirSync(cache, { recursive: true });
   const archive = path.join(cache, 'source.tar.gz');
-  run('tar', ['-czf', archive, '.node-version', 'package.json', 'package-lock.json', 'README.md', 'src', 'scripts'], { env: { COPYFILE_DISABLE: '1' } });
+  run('tar', ['-czf', archive, 'package.json', 'bun.lock', 'README.md', 'src', 'scripts'], { env: { COPYFILE_DISABLE: '1' } });
   const checksum = createHash('sha256').update(fs.readFileSync(archive)).digest('hex');
   const sourceArchive = path.join(cache, `source-${checksum}.tar.gz`);
   fs.renameSync(archive, sourceArchive);
@@ -81,7 +81,7 @@ if (command === 'install') install();
 else if (command === 'update') update();
 else if (command === 'uninstall') uninstall();
 else {
-  console.log('Usage: npm run brew:<install|update|uninstall>');
+  console.log('Usage: bun run brew:<install|update|uninstall>');
   console.log('Set RSPACK_RUNNER_TAP=owner/repository to use a different local tap.');
   process.exitCode = command ? 1 : 0;
 }

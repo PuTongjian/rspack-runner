@@ -6,6 +6,7 @@ const HtmlPlugin = require('html-webpack-plugin');
 const { readCompilerOptions } = require('./tsrs-loader.cjs');
 const { adaptSass } = require('./sass-options.cjs');
 const { cacheDependencies, cacheVersion } = require('./cache.cjs');
+const { SilkPulsePlugin } = require('./silkpulse.cjs');
 
 const VUE_RUNTIME_COMPAT_VERSION = 3;
 
@@ -91,6 +92,8 @@ function adaptRules(rules, cacheDir, typescript = {}, embeddedSass = true) {
     for (const key of ['rules', 'oneOf']) if (rule[key]) adaptRules(rule[key], cacheDir, typescript, embeddedSass);
     if (!Array.isArray(rule.use)) continue;
     rule.use = rule.use.map(use => {
+      // thread-loader's Webpack worker context is incompatible with Rspack.
+      if (/(?:^|[\\/])thread-loader(?:[\\/]|$|\?)/.test(typeof use === 'string' ? use : use.loader)) return null;
       if (typeof use !== 'object') return use;
       if (use.loader.includes('ts-loader')) return { ...use, loader: require.resolve('./tsrs-loader.cjs'), options: { ...typescript, tsx: Boolean(use.options?.appendTsxSuffixTo) || Boolean(rule.test?.test('module.tsx')) } };
       if (use.loader.includes('mini-css-extract-plugin')) return { ...use, loader: rspack.CssExtractRspackPlugin.loader };
@@ -98,12 +101,15 @@ function adaptRules(rules, cacheDir, typescript = {}, embeddedSass = true) {
       if (use.loader.includes('babel-loader')) return { ...use, options: { ...use.options, cacheCompression: false, cacheDirectory: path.join(cacheDir, 'babel-uncompressed') } };
       if (embeddedSass && use.loader.includes('sass-loader')) return adaptSass(use);
       return use;
-    });
+    }).filter(Boolean);
   }
 }
 
-async function createConfig({ command = 'dev', project, mode = command === 'build' ? 'production' : 'development', port, host = 'localhost', lazy = true, persistent = true, embeddedSass = true, devtool = command === 'build' ? 'source-map' : 'eval-cheap-module-source-map' }) {
+async function createConfig({ command = 'dev', project, mode = command === 'build' ? 'production' : 'development', port, host = 'localhost', lazy = true, persistent = true, embeddedSass = true, devtool = command === 'build' ? 'source-map' : 'eval-cheap-module-source-map', silkpulseServer }) {
   const isBuild = command === 'build';
+  if (isBuild && silkpulseServer !== undefined) throw new Error('SilkPulse injection is only supported by run/dev.');
+  // Babel's stack handlers conflict with Bun's legacy proxy error constructors.
+  if (process.versions.bun && !isBuild) createRequire(require.resolve('@rspack/dev-server'))('http-proxy-middleware');
   process.chdir(project);
   process.env.NODE_ENV = isBuild ? 'production' : 'development';
   process.env.VUE_CLI_BUILD_TARGET = 'app';
@@ -141,6 +147,10 @@ async function createConfig({ command = 'dev', project, mode = command === 'buil
     if (plugin instanceof VueLoaderPlugin || name === 'Object') return [plugin];
     throw new Error(`Unsupported plugin ${name}; add an explicit adapter instead of silently dropping it.`);
   });
+  if (silkpulseServer !== undefined) {
+    config.plugins.push(new SilkPulsePlugin(silkpulseServer));
+    notices.push(`SilkPulse SDK enabled → ${silkpulseServer}`);
+  }
   adaptRules(config.module.rules, cacheDir, { compilerOptions, configFile: tsconfig, configFiles: [...configFiles] }, embeddedSass);
   config.module.rules.unshift({
     test: /[\\/]@vue[\\/]runtime-core[\\/].*\.js$/,
@@ -156,7 +166,7 @@ async function createConfig({ command = 'dev', project, mode = command === 'buil
     ...config.experiments,
     cache: persistent ? {
       type: 'persistent', buildDependencies,
-      version: cacheVersion(buildDependencies, { compilerOptions, lazy, embeddedSass, devtool, vueRuntimeCompat: VUE_RUNTIME_COMPAT_VERSION }, mode),
+      version: cacheVersion(buildDependencies, { compilerOptions, lazy, embeddedSass, devtool, silkpulseServer, vueRuntimeCompat: VUE_RUNTIME_COMPAT_VERSION }, mode),
       storage: { type: 'filesystem', directory: path.join(cacheDir, 'rspack') },
     } : { type: 'memory' },
   };

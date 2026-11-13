@@ -8,17 +8,17 @@
     "rspack-runner": "src/cli.cjs"
   },
   "scripts": {
-    "demo": "node src/cli.cjs dev --project ../assets-supervision-ui --port 8087",
-    "build:executable": "node scripts/build-executable.cjs",
-    "brew:install": "node scripts/brew.cjs install",
-    "brew:update": "node scripts/brew.cjs update",
-    "brew:uninstall": "node scripts/brew.cjs uninstall",
-    "test": "node --test test/*.test.cjs",
-    "test:executable": "node scripts/test-executable.cjs",
-    "test:e2e": "vitest --config vitest.e2e.config.mjs --run"
+    "demo": "bun src/cli.cjs dev --project ../assets-supervision-ui --port 8087",
+    "build:executable": "bun scripts/build-executable.cjs",
+    "brew:install": "bun scripts/brew.cjs install",
+    "brew:update": "bun scripts/brew.cjs update",
+    "brew:uninstall": "bun scripts/brew.cjs uninstall",
+    "test": "bun test test/*.test.cjs",
+    "test:executable": "bun scripts/test-executable.cjs",
+    "test:e2e": "bun vitest --config vitest.e2e.config.mjs --run"
   },
   "engines": {
-    "node": ">=26.13.0"
+    "bun": ">=1.4.2"
   },
   "dependencies": {
     "@rspack/core": "1.7.12",

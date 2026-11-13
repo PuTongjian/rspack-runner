@@ -36,7 +36,7 @@ cp.spawnSync = (command, args, options) => {
     await fs.mkdir(extracted);
     const unpack = spawnSync('tar', ['-xzf', archive, '-C', extracted], { encoding: 'utf8' });
     assert.equal(unpack.status, 0, unpack.stderr);
-    for (const file of ['.node-version', 'package.json', 'package-lock.json', 'scripts/build-executable.cjs', 'scripts/executable-bootstrap.cjs', 'src/test-runner.cjs']) {
+    for (const file of ['package.json', 'bun.lock', 'scripts/build-executable.cjs', 'scripts/executable-bootstrap.cjs', 'src/test-runner.cjs']) {
       assert.equal(await fs.readFile(path.join(extracted, file), 'utf8'), await fs.readFile(path.resolve(__dirname, '..', file), 'utf8'));
     }
   }

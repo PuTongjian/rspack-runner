@@ -1,6 +1,6 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const { registerHooks } = require('node:module');
+const { registerHooks, createRequire } = require('node:module');
 const { pathToFileURL } = require('node:url');
 
 function resolveBundledBrowserIncludes(environment) {
@@ -20,7 +20,7 @@ async function runTests({ project, directory, config, ui = false, port = 51204, 
   const relative = path.relative(root, dir);
   const { startVitest } = await import('vitest/node');
   // Config files outside the runner can use its bundled configuration helpers.
-  const hooks = registerHooks({
+  const hooks = registerHooks?.({
     resolve(specifier, context, nextResolve) {
       try { return nextResolve(specifier, context); }
       catch (error) {
@@ -29,6 +29,33 @@ async function runTests({ project, directory, config, ui = false, port = 51204, 
       }
     },
   });
+  let bundledConfig;
+  if (process.versions.bun && config !== false) {
+    const configFile = config ? path.resolve(root, config) : await (async () => {
+      for (const name of ['vitest.config', 'vite.config']) for (const extension of ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs']) {
+        const file = path.join(root, `${name}.${extension}`);
+        try { await fs.access(file); return file; } catch {}
+      }
+    })();
+    if (configFile) {
+      const result = await Bun.build({
+        entrypoints: [configFile], target: 'bun', packages: 'external',
+        plugins: [{ name: 'bundled-config-tools', setup(build) {
+          build.onResolve({ filter: /^(?:vitest\/config|vite|@vitejs\/plugin-vue|@vitest\/browser-playwright)$/ }, args => {
+            let resolved;
+            try { resolved = createRequire(args.importer).resolve(args.path); }
+            catch { resolved = require.resolve(args.path); }
+            if (resolved.includes('/.bun/install/cache/')) resolved = require.resolve(args.path);
+            return { path: resolved, external: true };
+          });
+        } }],
+      });
+      if (!result.success) throw new AggregateError(result.logs, 'Failed to load Vitest config.');
+      bundledConfig = path.join(path.dirname(configFile), `.rspack-runner-${process.pid}-${Date.now()}.mjs`);
+      await fs.writeFile(bundledConfig, await result.outputs[0].text());
+      config = bundledConfig;
+    }
+  }
   let ctx;
   try {
     ctx = await startVitest('test', directory ? [dir.split(path.sep).join('/') + '/'] : [], {
@@ -41,6 +68,7 @@ async function runTests({ project, directory, config, ui = false, port = 51204, 
         name: 'rspack-runner:bundled-test-tools', enforce: 'pre',
         config() {
           return {
+            ...(process.versions.bun ? { test: { execArgv: ['--preload', require.resolve('./bun-test-preload.cjs')] } } : {}),
             resolve: { alias: [
               { find: /^vitest$/, replacement: path.join(path.dirname(require.resolve('vitest/package.json')), 'dist/index.js') },
               { find: 'vitest/internal/browser', replacement: require.resolve('vitest/internal/browser') },
@@ -76,7 +104,7 @@ async function runTests({ project, directory, config, ui = false, port = 51204, 
     }
   } finally {
     try { await ctx?.close(); }
-    finally { hooks.deregister(); }
+    finally { hooks?.deregister(); if (bundledConfig) await fs.rm(bundledConfig, { force: true }); }
   }
 }
 

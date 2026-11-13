@@ -4,10 +4,10 @@ class RspackRunner < Formula
   version "0.1.0"
   head "https://github.com/PuTongjian/rspack-runner.git", branch: "main"
 
-  depends_on "node" => :build
+  depends_on "bun" => :build
 
   def install
-    system "node", "scripts/build-executable.cjs"
+    system "bun", "scripts/build-executable.cjs"
     bin.install "dist/rspack-runner"
   end
 

@@ -166,7 +166,11 @@ test('test --ui serves the authenticated live UI, reruns changes, and closes on 
   const exited = new Promise(resolve => child.once('exit', resolve));
   child.kill('SIGTERM');
   await exited;
-  await assert.rejects(fetch(uiURL), /fetch failed/);
+  await waitUntil(() => new Promise(resolve => {
+    const socket = net.connect(port, '127.0.0.1');
+    socket.once('connect', () => { socket.destroy(); resolve(false); });
+    socket.once('error', () => resolve(true));
+  }), 'UI port closes after SIGTERM');
 });
 
 test('test command bundles browser provider and portable HTML reports with trace view', { timeout: 30_000 }, async t => {

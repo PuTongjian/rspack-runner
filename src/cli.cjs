@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 const path = require('node:path');
 const { parseArgs } = require('node:util');
 
@@ -9,6 +9,7 @@ async function main() {
       project: { type: 'string' }, mode: { type: 'string' },
       config: { type: 'string' },
       ui: { type: 'boolean' },
+      silkpulse: { type: 'boolean' }, 'silkpulse-server': { type: 'string' },
       port: { type: 'string' }, host: { type: 'string', default: 'localhost' },
       help: { type: 'boolean', short: 'h' },
       'no-lazy': { type: 'boolean' }, 'no-persistent-cache': { type: 'boolean' },
@@ -17,10 +18,12 @@ async function main() {
   });
   if (values.help) {
     console.log('Usage: rspack-runner <run|build> [--project PATH] [--mode NAME] [--port NUMBER] [--host HOST] [--no-lazy] [--no-persistent-cache] [--no-embedded-sass] [--no-eval]');
+    console.log('       rspack-runner run [options] [--silkpulse --silkpulse-server URL]');
     console.log('       rspack-runner test [DIRECTORY] [--project PATH] [--config PATH] [--ui [--port NUMBER] [--host HOST]]');
     return;
   }
   if (positionals[0] === 'test') {
+    if (values.silkpulse || values['silkpulse-server'] !== undefined) throw new Error('--silkpulse and --silkpulse-server are only supported by run/dev.');
     if (positionals.length > 2) throw new Error('The test command accepts at most one directory.');
     const port = values.port === undefined ? undefined : Number(values.port);
     if (port !== undefined && (!Number.isInteger(port) || port < 1 || port > 65535)) throw new Error('--port must be an integer between 1 and 65535.');
@@ -37,11 +40,13 @@ async function main() {
   const mode = values.mode || (command === 'build' ? 'production' : 'development');
   const port = values.port === undefined ? undefined : Number(values.port);
   if (port !== undefined && (!Number.isInteger(port) || port < 1 || port > 65535)) throw new Error('--port must be an integer between 1 and 65535.');
+  const { resolveSilkpulseServer } = require('./silkpulse.cjs');
+  const silkpulseServer = resolveSilkpulseServer(values.silkpulse, values['silkpulse-server'], command);
   const project = path.resolve(values.project || process.cwd());
   const { rspack } = require('@rspack/core');
   const { RspackDevServer } = require('@rspack/dev-server');
   const { createConfig } = require('./adapter.cjs');
-  const { config, devServer, notices } = await createConfig({ command, project, mode, host: values.host, port,
+  const { config, devServer, notices } = await createConfig({ command, project, mode, host: values.host, port, silkpulseServer,
     lazy: !values['no-lazy'], persistent: !values['no-persistent-cache'], embeddedSass: !values['no-embedded-sass'],
     devtool: command === 'build' ? 'source-map' : (values['no-eval'] ? 'cheap-module-source-map' : 'eval-cheap-module-source-map'),
   });

@@ -19,8 +19,8 @@ async function main() {
 import { test, expect } from 'vitest';
 import { createRequire } from 'node:module';
 const runnerRequire = createRequire(process.execPath);
-test('embedded Node and native dependencies', async () => {
-  expect(process.versions.node).toBe('26.13.0');
+test('embedded Bun and native dependencies', async () => {
+  expect(process.versions.bun).toMatch(/^\\d+\\.\\d+\\.\\d+$/);
   const { rspack } = runnerRequire('@rspack/core');
   const compiler = rspack({ context: ${JSON.stringify(root)}, mode: 'production', target: 'node', entry: './main.js', output: { path: ${JSON.stringify(path.join(root, 'out'))} } });
   try {
@@ -42,6 +42,13 @@ test('embedded Node and native dependencies', async () => {
     const help = run(['--help']);
     assert.equal(help.status, 0, help.stdout + help.stderr);
     assert.match(help.stdout, /rspack-runner test/);
+    assert.match(help.stdout, /--silkpulse.*--silkpulse-server/);
+    const missingServer = run(['run', '--silkpulse']);
+    assert.equal(missingServer.status, 1);
+    assert.match(missingServer.stdout + missingServer.stderr, /requires --silkpulse-server/);
+    const disabledBuild = run(['build', '--silkpulse', '--silkpulse-server', 'http://localhost:8080']);
+    assert.equal(disabledBuild.status, 1);
+    assert.match(disabledBuild.stdout + disabledBuild.stderr, /only supported by run\/dev/);
     const passed = run(['test', 'cases']);
     assert.equal(passed.status, 0, passed.stdout + passed.stderr);
     assert.match(passed.stdout, /2 passed/);
@@ -49,7 +56,7 @@ test('embedded Node and native dependencies', async () => {
     assert.equal(failed.status, 1, failed.stdout + failed.stderr);
     assert.match(failed.stdout + failed.stderr, /failure exit code/);
     await fs.writeFile(path.join(root, 'vitest.config.ts'), "import { defineConfig } from 'vitest/config'; export default defineConfig({ test: { include: ['cases/**/*.spec.js'], globals: true } });");
-    const configured = run(['test', 'cases']);
+    const configured = run(['test', 'cases', '--config', 'vitest.config.ts']);
     assert.equal(configured.status, 0, configured.stdout + configured.stderr);
     assert.match(configured.stdout, /1 passed/);
     await fs.mkdir(path.join(root, 'components'));
@@ -93,7 +100,7 @@ export default defineConfig({
     assert.ok(source && Object.values(source.s).some(hits => hits > 0), 'packaged coverage must map to Vue source');
     await fs.access(path.join(root, 'coverage', 'index.html'));
     await fs.access(path.join(root, 'coverage', 'lcov.info'));
-    console.log('Standalone executable passed: no system Node, nested JS/TS tests, native Rspack/Sass/tsrs, failure exit code, Vue components/jsdom/V8 coverage.');
+    console.log('Standalone executable passed: no system Bun, nested JS/TS tests, native Rspack/Sass/tsrs, failure exit code, Vue components/jsdom/V8 coverage.');
   } finally {
     await fs.rm(root, { recursive: true, force: true });
   }

@@ -12,14 +12,15 @@ Rspack Runner reads the target project's Vue CLI configuration, adapts supported
 - **Lazy Vue page compilation.** Defer dynamically imported `.vue` files under `src/views` and `agilebpm/package` until requested, while compiling entries immediately.
 - **Embedded Sass.** Use the runner's modern Sass compiler while adapting legacy Sass options, injected variables, and Webpack-style aliases.
 - **Existing development workflows.** Keep hot module replacement (HMR), API proxy rules, WebSocket proxy options, public assets, and SPA history fallback.
+- **Optional SilkPulse debugging.** Inject the remote debugging SDK through CLI options without editing the target application's HTML or environment files.
 - **Selected plugin adapters.** Adapt common Webpack plugins and supported unplugin integrations, including auto imports, component registration, `defineOptions`, and Element Plus.
 - **Inline SVG sprites.** Preserve symbol IDs for JavaScript-imported sprites using the target project's SVG tooling and runtime.
 - **Directory tests with Vitest.** Run every matching test under a selected directory with the runner's bundled Vitest.
-- **Standalone command.** Package Node, the runner, and production dependencies into a single executable.
+- **Standalone command.** Package Bun, the runner, and production dependencies into a single executable.
 
 ## Requirements
 
-- Node.js **26.13.0 or later** for running from source. The standalone executable includes Node **26.13.0** and needs no system Node installation.
+- Bun **1.4.2 or later** for running from source. The standalone executable includes the Bun version used to build it and needs no system Bun installation.
 - For `run` and `build`, an existing **Vue CLI 5 + Vue 3** application with its dependencies already installed and a readable `tsconfig.json`. `test` also works in directories without Vue CLI.
 - A platform supported by the pinned tsrs prebuilt binaries: macOS arm64 or Linux x64/arm64.
 
@@ -34,13 +35,13 @@ Clone and install the runner:
 ```sh
 git clone https://github.com/PuTongjian/rspack-runner.git
 cd rspack-runner
-npm ci
+bun install --frozen-lockfile
 ```
 
 Start a target application using an absolute or relative project path:
 
 ```sh
-node src/cli.cjs run --project /path/to/your-vue-cli-app --port 8087
+bun src/cli.cjs run --project /path/to/your-vue-cli-app --port 8087
 ```
 
 Open <http://localhost:8087>. The browser is not opened automatically. Stop the server with `Ctrl+C`.
@@ -49,7 +50,7 @@ You can also run the CLI from the target application's directory, in which case 
 
 ```sh
 cd /path/to/your-vue-cli-app
-node /path/to/rspack-runner/src/cli.cjs run --port 8087
+bun /path/to/rspack-runner/src/cli.cjs run --port 8087
 ```
 
 Use a different port from the application's original Webpack server to run both side by side.
@@ -58,10 +59,10 @@ The repository also includes an application-specific shortcut:
 
 ```sh
 # Requires an installed Vue CLI application at ../assets-supervision-ui.
-npm run demo
+bun run demo
 
 # Override the demo port.
-npm run demo -- --port 8088
+bun run demo --port 8088
 ```
 
 The CLI can also build the current project into its `dist` directory:
@@ -75,14 +76,14 @@ rspack-runner build
 Build for the current platform:
 
 ```sh
-npm run build:executable
-npm run test:executable
+bun run build:executable
+bun run test:executable
 ./dist/rspack-runner --help
 ```
 
-The build downloads the Node version pinned in `.node-version`, verifies its SHA-256 against the official release checksums, installs production dependencies in an isolated staging directory, and embeds everything in a Node single executable application. It supports macOS arm64 and Linux x64/arm64; build on the target platform so native dependencies match. macOS builds require `codesign` for ad hoc signing.
+The build uses Bun to install production dependencies in an isolated staging directory and creates a Bun standalone executable with the runtime and dependencies embedded. It supports macOS arm64 and Linux x64/arm64; build on the target platform so native dependencies match. macOS builds require `codesign` for ad hoc signing.
 
-Distribute just `dist/rspack-runner`. No separate Node, npm, or runner dependency installation is required. The first launch extracts the bundled runtime and dependencies to `~/.cache/rspack-runner/runtime/<payload-hash>`; later launches reuse it. A writable home directory and space for the extracted dependencies are required. Builds have separate caches; remove old runtime directories when no command is using them. The executable is not notarized for macOS distribution.
+Distribute just `dist/rspack-runner`. No separate Bun, Node, or runner dependency installation is required. The first launch extracts the bundled runtime and dependencies to `~/.cache/rspack-runner/runtime/<payload-hash>`; later launches reuse it. A writable home directory and space for the extracted dependencies are required. Builds have separate caches; remove old runtime directories when no command is using them. The executable is not notarized for macOS distribution.
 
 To make it available on your PATH:
 
@@ -92,7 +93,7 @@ cp dist/rspack-runner ~/.local/bin/rspack-runner
 # Ensure ~/.local/bin is on your PATH.
 ```
 
-Homebrew also builds and installs this standalone executable; Node is only a build dependency.
+Homebrew also builds and installs this standalone executable; Bun is only a build dependency.
 
 Homebrew requires formulas to live in a tap. To test this formula locally:
 
@@ -105,17 +106,17 @@ brew install --HEAD --build-from-source local/rspack-runner/rspack-runner
 
 For a shared installation, put `Formula/rspack-runner.rb` in a GitHub repository named `homebrew-rspack-runner`, then install it with `brew tap <account>/rspack-runner` followed by `brew install --HEAD <account>/rspack-runner/rspack-runner`. The formula tracks this repository's `main` branch.
 
-The repository also provides npm commands for managing the default local tap (`local/rspack-runner`):
+The repository also provides Bun commands for managing the default local tap (`local/rspack-runner`):
 
 ```sh
-npm run brew:install   # package the current local source and install the command
-npm run brew:update    # package the current local source and reinstall
-npm run brew:uninstall # uninstall the command and remove the local tap
+bun run brew:install   # package the current local source and install the command
+bun run brew:update    # package the current local source and reinstall
+bun run brew:uninstall # uninstall the command and remove the local tap
 ```
 
 `brew:uninstall` removes this formula and its dedicated local tap; it does not uninstall Homebrew itself. Set `RSPACK_RUNNER_TAP=owner/repository` before install/update if you use another tap.
 
-The npm install/update helpers create a complete source archive under `.cache/brew` and generate a local tap formula with its file URL and SHA-256. This includes uncommitted and new source files, so local changes do not need to be pushed before installation. Keep that cache for direct `brew reinstall` calls, or run the npm helper to create a fresh archive. Use the repository's `Formula/rspack-runner.rb` for a shared remote tap; the generated local formula refers to files on this machine.
+The Bun install/update helpers create a complete source archive under `.cache/brew` and generate a local tap formula with its file URL and SHA-256. This includes uncommitted and new source files, so local changes do not need to be pushed before installation. Keep that cache for direct `brew reinstall` calls, or run the Bun helper to create a fresh archive. Use the repository's `Formula/rspack-runner.rb` for a shared remote tap; the generated local formula refers to files on this machine.
 
 The installed command always uses the current working directory as the project unless `--project` is supplied. `run` is the user-facing name for the development server; `dev` remains an alias.
 
@@ -138,6 +139,8 @@ rspack-runner test [DIRECTORY] [--project PATH] [--config PATH] [--ui [--port NU
 | `--no-persistent-cache` | Persistent cache enabled | Disable disk caching while retaining memory caching. |
 | `--no-embedded-sass` | Embedded Sass enabled | Retain the target project's Sass loader and compiler. |
 | `--no-eval` | Eval-based source maps enabled | Use `cheap-module-source-map` for environments whose CSP blocks `eval`. |
+| `--silkpulse` | Off | Inject the SilkPulse SDK into generated HTML. Only for `run` / `dev`; requires `--silkpulse-server`. |
+| `--silkpulse-server URL` | None | SilkPulse HTTP(S) server address, optionally with a reverse proxy path prefix; requires `--silkpulse`. Credentials, query strings, and fragments are rejected. |
 | `--help`, `-h` | | Print usage. |
 
 `run` starts the development server. `dev` is kept as an alias. `build` performs a production compilation and writes `dist` inside the target project. `--mode` selects Vue CLI configuration and environment files.
@@ -145,8 +148,22 @@ rspack-runner test [DIRECTORY] [--project PATH] [--config PATH] [--ui [--port NU
 For example:
 
 ```sh
-node src/cli.cjs run --project ../my-app --mode staging --port 8087 --no-eval
+bun src/cli.cjs run --project ../my-app --mode staging --port 8087 --no-eval
 ```
+
+### Optional SilkPulse injection
+
+Start the application with both the enable flag and the address of your deployed SilkPulse server:
+
+```sh
+rspack-runner run --silkpulse --silkpulse-server http://localhost:8080
+# Or select another target project:
+bun src/cli.cjs run --project ../my-app --silkpulse --silkpulse-server https://debug.example.com
+```
+
+The generated HTML loads `<server>/sdk.js` synchronously before application bundles, sets `data-server` and `crossorigin="anonymous"`, and hides the SDK floating ball. The target project's source and environment files remain unchanged. Removing these options disables injection; `build` and `test` reject them. The persistent cache includes the server address so changing or disabling injection cannot retain a previous SDK URL.
+
+With only the server address configured, devices appear as ungrouped devices in the SilkPulse admin console. Sign in there using your server's admin key; the key is never injected into the application. The browser must be able to reach the server's HTTP and WebSocket endpoints. HTTPS application pages require an HTTPS/WSS SilkPulse service, and any CSP must allow the SDK and its WebSocket connection. The enabled SDK sends page state, console output, and network requests/responses to the chosen service.
 
 ## Running Tests
 
@@ -165,7 +182,7 @@ rspack-runner test test/e2e --config vitest.e2e.config.mjs
 
 Without `--config`, the command recursively searches the current working directory for `vitest.config.*` and `vitest.<name>.config.*` files (`js`, `ts`, `mjs`, `mts`, `cjs`, `cts`), skipping `node_modules`, `.git`, and symbolic links. An Ink picker lets you move with ↑/↓, toggle configurations with Space, and run the selection with Enter. Esc or Ctrl+C cancels. Each selected configuration uses the original working directory as its test root unless `--project` is supplied; an explicit test directory remains relative to `--project` or the original working directory. Selected configurations run sequentially, continuing after failures. In `--ui` mode they run together on consecutive ports starting at `--port` (default `51204`). Non-interactive callers must pass `--config` when configurations are found. Configuration validity is checked by Vitest when selected configurations run.
 
-If no matching configuration is found, the command uses normal Vitest root discovery, including `vite.config.*`. Tests run once and the command exits: success returns `0`; failing tests, missing directories, or no matching files return a nonzero status. By default Vitest discovers `*.test.*` and `*.spec.*` files in JavaScript/TypeScript (including JSX/TSX and ESM variants). Configuration include/exclude patterns, environments, setup files, and plugins apply within the selected directory. Config files use Node's native loader and TypeScript stripping; `vitest/config`, `vite`, and `@vitejs/plugin-vue` imports fall back to the runner's dependencies when unavailable in the target project. TypeScript syntax that requires code generation (such as enums) is unsupported in config files.
+If no matching configuration is found, the command uses normal Vitest root discovery, including `vite.config.*`. Tests run once and the command exits: success returns `0`; failing tests, missing directories, or no matching files return a nonzero status. By default Vitest discovers `*.test.*` and `*.spec.*` files in JavaScript/TypeScript (including JSX/TSX and ESM variants). Configuration include/exclude patterns, environments, setup files, and plugins apply within the selected directory. Config files are transpiled by Bun; `vitest/config`, `vite`, and `@vitejs/plugin-vue` imports fall back to the runner's dependencies when unavailable in the target project. The runner resolves bundled configuration helpers before loading external configs.
 
 ### Visual results and browser traces
 
@@ -241,6 +258,7 @@ The runner initializes the target project's Vue CLI service and resolves its Web
 
 | Area | Adaptation |
 | --- | --- |
+| Webpack worker loaders | Remove `thread-loader` before running the loader chain in Rspack. |
 | TypeScript | Replace `ts-loader` with the runner's tsrs loader. |
 | Babel and PostCSS | Reuse the target project's configuration and dependencies; move Babel caching into the runner and disable cache compression. |
 | Sass | Use the runner's embedded modern compiler by default, preserving supported project options. |
@@ -250,7 +268,7 @@ The runner initializes the target project's Vue CLI service and resolves its Web
 | Supported unplugin modules | Select their Rspack factories while Vue CLI evaluates configuration, preserving supplied options except declaration-generation settings. |
 | Development server | Adapt proxy configuration and enable HMR, static serving, history fallback, and lazy-compilation middleware. |
 
-The recognized unplugin integrations are `unplugin-auto-import`, `unplugin-vue-components`, `unplugin-vue-define-options`, and `unplugin-element-plus`. Their installed versions must expose a compatible Rspack factory, or a supported raw factory. Auto-import and component declaration generation is disabled, as is auto-import ESLint declaration generation. The temporary Node module-loading interception is restored after configuration resolution.
+The recognized unplugin integrations are `unplugin-auto-import`, `unplugin-vue-components`, `unplugin-vue-define-options`, and `unplugin-element-plus`. Their installed versions must expose a compatible Rspack factory, or a supported raw factory. Auto-import and component declaration generation is disabled, as is auto-import ESLint declaration generation. The temporary module-loading interception is restored after configuration resolution.
 
 ## Caching and Performance
 
@@ -280,7 +298,7 @@ Recorded measurements on the reference application reduced the initial Rspack co
 See [the performance investigation](docs/compile-performance.md) and [source references](docs/performance-sources.md) for methodology and raw results. These research notes are currently in Chinese. The benchmark harness expects the sibling `../assets-supervision-ui` application:
 
 ```sh
-node scripts/benchmark-compile.cjs optimized
+bun scripts/benchmark-compile.cjs optimized
 ```
 
 Run it again to compare persistent-cache reuse across processes.
@@ -290,22 +308,24 @@ Run it again to compare persistent-cache reuse across processes.
 Run the automated adapter, loader, and compilation tests:
 
 ```sh
-npm test
+bun run test
 ```
+
+On Bun, jsdom runs without VM script execution because Bun's VM Window context is incompatible with jsdom event targets. Vue component tests and V8 coverage are supported; use browser mode for tests that need scripts embedded in HTML to execute.
 
 The suite covers proxy conversion, nested loader adaptation, CLI validation, tsrs output and diagnostics, cache invalidation, Sass compatibility, and lazy-compilation middleware with hot-update assets.
 
-It also checks directory-scoped Vitest execution, nested JS/TS discovery, configuration loading, failure exit codes, Vue component DOM updates in jsdom, and V8 coverage mapped to Vue source with HTML/LCOV reports. `npm run test:executable` verifies the packaged binary with no system Node on PATH, including its Rspack, Sass, and tsrs native dependencies and bundled Vue test tooling.
+It also checks directory-scoped Vitest execution, nested JS/TS discovery, configuration loading, failure exit codes, Vue component DOM updates in jsdom, and V8 coverage mapped to Vue source with HTML/LCOV reports. `bun run test:executable` verifies the packaged binary with no system Bun on PATH, including its Rspack, Sass, and tsrs native dependencies and bundled Vue test tooling.
 
 An additional browser smoke script uses the reference application's configuration and dependencies:
 
 ```sh
-node test/smoke.cjs /path/to/assets-supervision-ui
+bun test/smoke.cjs /path/to/assets-supervision-ui
 ```
 
 It creates a temporary Vue + TypeScript + SCSS fixture inside the runner's cache directory and checks HTML/static serving, SVG sprites, auto imports, Element Plus, proxy rewriting, lazy-page activation, HMR WebSocket messages, and browser DOM updates. It assumes reference-specific assets, styles, and plugins, so it is not a generic smoke test for every Vue CLI application. The default browser path is macOS Google Chrome; set `PLAYWRIGHT_EXECUTABLE_PATH` to use another compatible browser installation.
 
-`npm run test:e2e` runs a separate application-specific asset-disposal workflow against an already running reference application. See [the E2E instructions](test/e2e/README.md) for login-state and environment settings. It is not part of the generic runner test suite.
+`bun run test:e2e` runs a separate application-specific asset-disposal workflow against an already running reference application. See [the E2E instructions](test/e2e/README.md) for login-state and environment settings. It is not part of the generic runner test suite.
 
 ## Compatibility and Limitations
 
@@ -316,6 +336,7 @@ It creates a temporary Vue + TypeScript + SCSS fixture inside the runner's cache
 - **Explicit plugin support.** Unknown named plugins cause an error and need an explicit adapter. Anonymous object plugins are retained and require validation against the target application.
 - **Omitted plugins.** CaseSensitivePaths, FriendlyErrors, WebpackBar, and ForkTsChecker are omitted, with notices printed at startup.
 - **SVG scope.** The sprite adapter supports JavaScript-imported inline sprites and preserves `symbolId`. `extract: true` is unsupported.
+- **HMR validation.** The reference smoke test currently times out waiting for a Vue component DOM update under both Node and Bun, although compilation and HMR WebSocket messages succeed.
 - **Warnings.** The terminal suppresses individual compilation warning messages, including existing Vue and Sass deprecation warnings.
 
 This runner provides a way to evaluate an existing application's development workflow with Rspack. Compatibility must be checked against that application's actual loaders, plugins, styles, and browser behavior before adopting it.
