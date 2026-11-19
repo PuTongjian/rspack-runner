@@ -105,9 +105,9 @@ function adaptRules(rules, cacheDir, typescript = {}, embeddedSass = true) {
   }
 }
 
-async function createConfig({ command = 'dev', project, mode = command === 'build' ? 'production' : 'development', port, host = 'localhost', lazy = true, persistent = true, embeddedSass = true, devtool = command === 'build' ? 'source-map' : 'eval-cheap-module-source-map', silkpulseServer }) {
+async function createConfig({ command = 'dev', project, mode = command === 'build' ? 'production' : 'development', port, host = 'localhost', lazy = true, persistent = true, embeddedSass = true, devtool = command === 'build' ? 'source-map' : 'eval-cheap-module-source-map', silkpulseServer, silkpulseVueHighPerf = false }) {
   const isBuild = command === 'build';
-  if (isBuild && silkpulseServer !== undefined) throw new Error('SilkPulse injection is only supported by run/dev.');
+  if (isBuild && (silkpulseServer !== undefined || silkpulseVueHighPerf)) throw new Error('SilkPulse injection is only supported by run/dev.');
   // Babel's stack handlers conflict with Bun's legacy proxy error constructors.
   if (process.versions.bun && !isBuild) createRequire(require.resolve('@rspack/dev-server'))('http-proxy-middleware');
   process.chdir(project);
@@ -148,8 +148,9 @@ async function createConfig({ command = 'dev', project, mode = command === 'buil
     throw new Error(`Unsupported plugin ${name}; add an explicit adapter instead of silently dropping it.`);
   });
   if (silkpulseServer !== undefined) {
-    config.plugins.push(new SilkPulsePlugin(silkpulseServer));
+    config.plugins.push(new SilkPulsePlugin(silkpulseServer, silkpulseVueHighPerf));
     notices.push(`SilkPulse SDK enabled → ${silkpulseServer}`);
+    if (silkpulseVueHighPerf) notices.push('SilkPulse Vue DevTools: start in high-performance mode.');
   }
   adaptRules(config.module.rules, cacheDir, { compilerOptions, configFile: tsconfig, configFiles: [...configFiles] }, embeddedSass);
   config.module.rules.unshift({
@@ -166,7 +167,7 @@ async function createConfig({ command = 'dev', project, mode = command === 'buil
     ...config.experiments,
     cache: persistent ? {
       type: 'persistent', buildDependencies,
-      version: cacheVersion(buildDependencies, { compilerOptions, lazy, embeddedSass, devtool, silkpulseServer, vueRuntimeCompat: VUE_RUNTIME_COMPAT_VERSION }, mode),
+      version: cacheVersion(buildDependencies, { compilerOptions, lazy, embeddedSass, devtool, silkpulseServer, silkpulseVueHighPerf, vueRuntimeCompat: VUE_RUNTIME_COMPAT_VERSION }, mode),
       storage: { type: 'filesystem', directory: path.join(cacheDir, 'rspack') },
     } : { type: 'memory' },
   };

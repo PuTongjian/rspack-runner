@@ -141,6 +141,7 @@ rspack-runner test [DIRECTORY] [--project PATH] [--config PATH] [--ui [--port NU
 | `--no-eval` | Eval-based source maps enabled | Use `cheap-module-source-map` for environments whose CSP blocks `eval`. |
 | `--silkpulse` | Off | Inject the SilkPulse SDK into generated HTML. Only for `run` / `dev`; requires `--silkpulse-server`. |
 | `--silkpulse-server URL` | None | SilkPulse HTTP(S) server address, optionally with a reverse proxy path prefix; requires `--silkpulse`. Credentials, query strings, and fragments are rejected. |
+| `--silkpulse-vue-high-perf` | Off | Start Vue DevTools in high-performance mode while keeping SilkPulse network (including XHR bodies) and log collection. Requires `--silkpulse`; only for `run` / `dev`. |
 | `--help`, `-h` | | Print usage. |
 
 `run` starts the development server. `dev` is kept as an alias. `build` performs a production compilation and writes `dist` inside the target project. `--mode` selects Vue CLI configuration and environment files.
@@ -161,7 +162,15 @@ rspack-runner run --silkpulse --silkpulse-server http://localhost:8080
 bun src/cli.cjs run --project ../my-app --silkpulse --silkpulse-server https://debug.example.com
 ```
 
-The generated HTML loads `<server>/sdk.js` synchronously before application bundles, sets `data-server` and `crossorigin="anonymous"`, and hides the SDK floating ball. The target project's source and environment files remain unchanged. Removing these options disables injection; `build` and `test` reject them. The persistent cache includes the server address so changing or disabling injection cannot retain a previous SDK URL.
+The generated HTML loads `<server>/sdk.js` synchronously before application bundles, sets `data-server` and `crossorigin="anonymous"`, and shows the SDK floating ball. The target project's source and environment files remain unchanged. Removing these options disables injection; `build` and `test` reject them. The persistent cache includes the server address and Vue DevTools mode so changing these options cannot retain previous injection settings.
+
+For Vue-heavy pages that lag with SilkPulse enabled, start with Vue DevTools high-performance mode:
+
+```sh
+rspack-runner run --silkpulse --silkpulse-server http://localhost:8080 --silkpulse-vue-high-perf
+```
+
+The runner applies the mode immediately after loading the SDK, before the app bundles run. It uses the SDK's Vue DevTools hook when available and does not change XHR response-body collection. This sets the initial mode, not a permanent lock: a Vue DevTools client may change it when opened. A restrictive CSP must allow the runner's additional script at the application's configured public path (no inline code is needed).
 
 With only the server address configured, devices appear as ungrouped devices in the SilkPulse admin console. Sign in there using your server's admin key; the key is never injected into the application. The browser must be able to reach the server's HTTP and WebSocket endpoints. HTTPS application pages require an HTTPS/WSS SilkPulse service, and any CSP must allow the SDK and its WebSocket connection. The enabled SDK sends page state, console output, and network requests/responses to the chosen service.
 

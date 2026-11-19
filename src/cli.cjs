@@ -10,6 +10,7 @@ async function main() {
       config: { type: 'string' },
       ui: { type: 'boolean' },
       silkpulse: { type: 'boolean' }, 'silkpulse-server': { type: 'string' },
+      'silkpulse-vue-high-perf': { type: 'boolean' },
       port: { type: 'string' }, host: { type: 'string', default: 'localhost' },
       help: { type: 'boolean', short: 'h' },
       'no-lazy': { type: 'boolean' }, 'no-persistent-cache': { type: 'boolean' },
@@ -18,9 +19,14 @@ async function main() {
   });
   if (values.help) {
     console.log('Usage: rspack-runner <run|build> [--project PATH] [--mode NAME] [--port NUMBER] [--host HOST] [--no-lazy] [--no-persistent-cache] [--no-embedded-sass] [--no-eval]');
-    console.log('       rspack-runner run [options] [--silkpulse --silkpulse-server URL]');
+    console.log('       rspack-runner run [options] [--silkpulse --silkpulse-server URL [--silkpulse-vue-high-perf]]');
     console.log('       rspack-runner test [DIRECTORY] [--project PATH] [--config PATH] [--ui [--port NUMBER] [--host HOST]]');
     return;
+  }
+  const silkpulseVueHighPerf = values['silkpulse-vue-high-perf'];
+  if (silkpulseVueHighPerf) {
+    if (positionals[0] === 'build' || positionals[0] === 'test') throw new Error('--silkpulse-vue-high-perf is only supported by run/dev.');
+    if (!values.silkpulse) throw new Error('--silkpulse-vue-high-perf requires --silkpulse.');
   }
   if (positionals[0] === 'test') {
     if (values.silkpulse || values['silkpulse-server'] !== undefined) throw new Error('--silkpulse and --silkpulse-server are only supported by run/dev.');
@@ -46,7 +52,7 @@ async function main() {
   const { rspack } = require('@rspack/core');
   const { RspackDevServer } = require('@rspack/dev-server');
   const { createConfig } = require('./adapter.cjs');
-  const { config, devServer, notices } = await createConfig({ command, project, mode, host: values.host, port, silkpulseServer,
+  const { config, devServer, notices } = await createConfig({ command, project, mode, host: values.host, port, silkpulseServer, silkpulseVueHighPerf,
     lazy: !values['no-lazy'], persistent: !values['no-persistent-cache'], embeddedSass: !values['no-embedded-sass'],
     devtool: command === 'build' ? 'source-map' : (values['no-eval'] ? 'cheap-module-source-map' : 'eval-cheap-module-source-map'),
   });
